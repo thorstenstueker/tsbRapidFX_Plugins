@@ -1,0 +1,20 @@
+name: Something is missing
+description: A component, a property, a step that ought to be easier
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you were trying to do
+      description: |
+        The task rather than the feature, if you can. "I need a date picker" is useful;
+        "I was trying to let somebody pick a delivery date and ended up building one out of
+        three text fields" says what to build and how to judge it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: now
+    attributes:
+      label: How you are doing it now
+      description: What you settled for instead, and what is wrong with that.

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: The language, the compiler, the runtime
+    url: https://github.com/thorstenstueker/tsbRapidFX/issues
+    about: Anything about tsbRapidFX itself rather than the IDE plugins.
+  - name: What tsbRapidFX is
+    url: https://thorstenstueker.github.io/tsbRapidFX/
+    about: The project page.

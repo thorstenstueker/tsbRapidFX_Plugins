@@ -1,0 +1,49 @@
+name: Something is not working
+description: A plugin does something wrong, or stops doing something
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Questions about the language itself — the compiler, the runtime, `rfxc` — belong in
+        [thorstenstueker/tsbRapidFX](https://github.com/thorstenstueker/tsbRapidFX/issues).
+        This tracker is for the IDE plugins.
+
+  - type: dropdown
+    id: plugin
+    attributes:
+      label: Which plugin
+      options:
+        - tsbRapidFX — Desktop & Web
+        - tsbRapidFX Mobile
+        - Both, or not sure
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The plugin's version from Settings ▸ Plugins, and IntelliJ's from Help ▸ About.
+      placeholder: "plugin 2.0.2, IntelliJ IDEA 2025.2.1, JDK 21"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did, and what happened instead
+      description: |
+        The shorter the better, as long as somebody else could do the same thing. If the
+        compiler said something, paste it — it names the file, the line and the column.
+    validations:
+      required: true
+
+  - type: textarea
+    id: form
+    attributes:
+      label: The form, if one is involved
+      description: |
+        A `.rfx` file is plain text. The smallest one that still goes wrong is worth more than
+        the real one — and please take out anything you would not want on the internet.
+      render: vbnet

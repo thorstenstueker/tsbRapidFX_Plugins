@@ -1,0 +1,31 @@
+tsbRapidFX IDE plugins
+Copyright © 2026 Thorsten Stüker. All rights reserved.
+
+The plugins published here are proprietary. Nothing is permitted without the
+express written consent of the rights holder: no redistribution, no
+modification, no reverse engineering beyond what the law allows in any case,
+and no making publicly available. Whoever has acquired a licence follows its
+terms; they take precedence over this file.
+
+APPLICATIONS YOU WRITE ARE YOURS
+
+This claims nothing in them. It concerns the tools, not what is built with
+them. The forms the designer writes are your source files.
+
+WHAT IS INSIDE THE PLUGINS AND IS NOT PROPRIETARY
+
+Each plugin compiles the tsbRapidFX compiler and runtime into itself. Those
+are licensed under the Apache License 2.0 and are published as source at
+https://github.com/thorstenstueker/tsbRapidFX — under that licence they may be
+used, modified and redistributed by anybody, and this file cannot narrow that.
+
+The third-party components inside the plugins, with their licences, are listed
+in the NOTICE file shipped inside each plugin zip.
+
+NO WARRANTY
+
+The software is provided without warranty, as far as the law allows.
+Liability for damages arising from its use is excluded, as far as the law
+allows.
+
+Thorsten Stüker — github.com/thorstenstueker
