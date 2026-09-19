@@ -90,8 +90,10 @@ No licence server, no account, no phoning home.
 3. You get a **licence block** back by e-mail.
 4. Paste it into **I have a licence…** in the designer.
 
-That is once, for that machine, for ever — through reinstalling the plugin, updating the IDE and
-updating the plugin. A second machine has a second station code and needs its own licence.
+That is once, for that machine, for the whole major version the licence names ("Valid: 2.x") —
+through reinstalling the plugin, updating the IDE and updating the plugin within that version. A
+new major version needs a new licence. A second machine has a second station code and needs its
+own licence.
 
 The check is a signature the plugin verifies against a public key compiled into it, offline. It
 never contacts anything.
@@ -117,9 +119,12 @@ that code lives.
 
 ## Licence
 
-The plugins are **proprietary**. Copyright © 2026 Thorsten Stüker. See `LICENSE`.
+The plugins are **commercial software** under the **TSB Commercial License (TSB-CL) 1.5**.
+Copyright © 2026 tsb Thorsten Stueker Buero for Technology development. See `LICENSE` — including
+what applications built with them may contain and ship (the tsb.mobile backends, tsbWEB,
+tsbswing). Questions: licensequestions@stueker.org
 
-The compiler and the runtime they carry are Apache 2.0 and are published separately at
-[thorstenstueker/tsbRapidFX](https://github.com/thorstenstueker/tsbRapidFX). That split is
+The compiler, the runtime and the tsb.mobile API they carry are Apache 2.0 and are published
+separately at [thorstenstueker/tsbRapidFX](https://github.com/thorstenstueker/tsbRapidFX). That split is
 deliberate: whatever happens to this company, an application written with tsbRapidFX can still be
 rebuilt — without the designer, without automation, but without asking anybody's permission.

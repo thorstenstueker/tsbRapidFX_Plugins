@@ -1,31 +1,120 @@
 tsbRapidFX IDE plugins
-Copyright © 2026 Thorsten Stüker. All rights reserved.
+Copyright (C) 2026 tsb Thorsten Stueker Buero for Technology development. All rights reserved.
 
-The plugins published here are proprietary. Nothing is permitted without the
-express written consent of the rights holder: no redistribution, no
-modification, no reverse engineering beyond what the law allows in any case,
-and no making publicly available. Whoever has acquired a licence follows its
-terms; they take precedence over this file.
+The plugins published here are licensed under the TSB Commercial License (TSB-CL), Version 1.5,
+reproduced below, together with the product-specific terms that follow it.
 
-APPLICATIONS YOU WRITE ARE YOURS
+--------------------------------------------------------------------------------
 
-This claims nothing in them. It concerns the tools, not what is built with
-them. The forms the designer writes are your source files.
+TSB Commercial License (TSB-CL)
 
-WHAT IS INSIDE THE PLUGINS AND IS NOT PROPRIETARY
+Version 1.5
 
-Each plugin compiles the tsbRapidFX compiler and runtime into itself. Those
-are licensed under the Apache License 2.0 and are published as source at
-https://github.com/thorstenstueker/tsbRapidFX — under that licence they may be
-used, modified and redistributed by anybody, and this file cannot narrow that.
+This License Agreement ("Agreement") is entered into by and between the Licensor (tsb Thorsten Stueker Buero for Technology development, hereinafter "Licensor") and the licensee acquiring the license (hereinafter "Licensee").
 
-The third-party components inside the plugins, with their licences, are listed
-in the NOTICE file shipped inside each plugin zip.
+Licensor contact: Lemgoer Str. 7, 32683 Barntrup, Germany; phone +49 5750 490585; e-mail: licensequestions@stueker.org
 
-NO WARRANTY
+By purchasing, downloading, installing, or using the software (the tsbRapidFX IDE plugins — RapidFX with its desktop and web designer, tsbDesignerMobile and tsbFXdesigner — and the libraries they put into applications: the tsb.mobile backends, tsbWEB and tsbswing, hereinafter "Software"), the Licensee agrees to be bound by the terms and conditions of this Agreement.
+1. Grant of License
 
-The software is provided without warranty, as far as the law allows.
-Liability for damages arising from its use is excluded, as far as the law
-allows.
+Subject to compliance with this Agreement and full payment of the agreed license fees, the Licensor grants the Licensee a non-exclusive, non-transferable, worldwide license to use the Software for commercial and operational purposes.
+2. Scope of Use & Rights
 
-Thorsten Stüker — github.com/thorstenstueker
+The Licensee is entitled to:
+
+    Install and execute the Software on the systems or devices specified in the purchase agreement/order.
+
+    Use the Software to provide commercial services, products, or internal business operations.
+
+    Create copies of the Software for backup and archival purposes, as agreed upon.
+
+3. Generated Output & Redistributable Components
+
+    Output: Files that the Licensee creates with the Software (for example installers, packages, disk images, or other build results, hereinafter "Output") may be used, distributed, and sold by the Licensee without restriction and without additional fees. The Licensor claims no rights in the Licensee's own applications, data, or content contained in the Output.
+
+    Redistributable Components: Where the Software embeds components into the Output (for example launchers, setup programs, runtime libraries, or runtime environments, hereinafter "Redistributable Components"), the Licensee may distribute them royalty-free as part of the Output. The Licensor names the Redistributable Components and their license terms in the documentation or in the license files included with the Software and the Output.
+
+    Redistributable Components licensed under their own license terms (open-source or third-party components, see Section 5) are governed by those terms.
+
+    Redistributable Components provided by the Licensor under this Agreement may be distributed only as an integral part of the Output, not separately. Recipients of the Output may use them only as part of the Output. Apart from their distribution and use as part of the Output, Section 4 continues to apply to them.
+
+    The restrictions in Section 4 do not apply to the Output itself or to the distribution of Redistributable Components as part of the Output.
+
+4. Restrictions & Prohibitions
+
+Unless expressly authorized in writing by the Licensor, permitted by mandatory law (in particular Sections 69d and 69e of the German Copyright Act, UrhG), or permitted by the license terms of third-party components (Section 5), the Licensee is prohibited from:
+
+    Selling, renting, leasing, sublicensing, assigning, or otherwise transferring the Software (in whole or in part) to third parties.
+
+    Decompiling, disassembling, reverse engineering, or attempting to discover the source code of the Software.
+
+    Removing or modifying any copyright notices, trademarks, serial numbers, or proprietary legends from the Software or documentation.
+
+    Using the Software to develop a product that directly competes with the Software.
+
+5. Third-Party Software & Open-Source Components
+
+    Inclusion of Third-Party Components: The Software may contain open-source software or third-party components (e.g., under licenses such as MIT, Apache 2.0, EPL 1.0, LGPL 2.1, GPL 2.0 with Classpath Exception, or similar terms).
+
+    Precedence of Third-Party Licenses: Third-party components are governed exclusively by their respective license terms. Nothing in this Agreement restricts the rights granted by those licenses — in particular, where a component's license permits modification or reverse engineering (for example for debugging modifications of LGPL-licensed libraries), those rights remain unaffected.
+
+    Obligation to Retain License Notices: The Licensee agrees to preserve unchanged all third-party license texts, copyright notices, disclaimers, and license files provided or included with the Software (e.g., LICENSE, NOTICE, or corresponding CLI/GUI notice outputs).
+
+    Propagation to Derivatives/Modified Works: In any permitted distribution, integration, or creation of derivative works, these third-party license and copyright notices must strictly be included in the delivery package or accompanying documentation and passed through to the end user.
+
+6. Copyright & Ownership
+
+The Software is licensed, not sold. All rights, title, and interest in and to the Software—including all copyrights, patents, trade secrets, and other intellectual property rights—remain exclusively with the Licensor (tsb Thorsten Stueker Buero for Technology development), without prejudice to the rights of third parties in the included open-source components.
+7. Warranty & Limitation of Liability
+
+    Warranty: The Software is provided "AS IS", unless otherwise agreed or mandated by applicable law. Mandatory statutory rights, in particular those of consumers, remain unaffected.
+
+    Unlimited Liability: The Licensor is liable without limitation for damages caused intentionally or by gross negligence, for damages resulting from injury to life, body, or health, under the German Product Liability Act (Produkthaftungsgesetz), and within the scope of any guarantee expressly given.
+
+    Slight Negligence: In cases of slight negligence, the Licensor is liable only for the breach of essential contractual obligations (obligations whose fulfillment makes the proper performance of this Agreement possible in the first place and on whose compliance the Licensee may regularly rely), and such liability is limited to the foreseeable damage typical for this type of contract.
+
+    Exclusion: Any further liability, in particular for indirect damages, consequential damages, lost profits, or loss of data, is excluded to the maximum extent permitted by law.
+
+8. Term & Termination
+
+    This license remains in effect until terminated in accordance with the provisions of this Agreement.
+
+    The right to use the Software automatically terminates immediately without notice if the Licensee breaches any provision of this Agreement.
+
+    Upon termination, the Licensee must immediately cease all use of the Software and permanently delete or destroy all copies of the Software in its possession. Output lawfully created and distributed before termination (Section 3) remains unaffected.
+
+9. Governing Law & Jurisdiction
+
+This Agreement shall be governed by and construed in accordance with the laws of the Federal Republic of Germany, excluding the UN Convention on Contracts for the International Sale of Goods (CISG). The exclusive place of jurisdiction for all disputes arising out of or in connection with this contract shall be Detmold, Germany, provided the Licensee is a merchant, a legal entity under public law, or a special fund under public law.
+
+--------------------------------------------------------------------------------
+
+Product-specific terms (order terms in the sense of Section 2)
+
+1. Evaluation. The designers run for ninety days from the first form opened. After that a
+   designer requires a licence. The editor, completion, error marks, structure view and compiling
+   from the IDE keep working without one.
+
+2. One licence per machine. A licence is issued for the station code a designer shows on one
+   installation and is valid on that machine only. A second machine needs its own licence.
+
+3. One major version. A licence states the major version it is valid for (for example
+   "Valid: 2.x") and covers every release of that major version, including updates of the plugin
+   and of the IDE. A new major version requires a new licence.
+
+4. Redistributable Components (Section 3). Applications built with the designers may contain, and
+   be distributed with, the tsb.mobile backends, tsbWEB and tsbswing — royalty-free, as part of the
+   application and not separately. The forms and source files the designers write belong to the
+   Licensee.
+
+--------------------------------------------------------------------------------
+
+Components not covered by the TSB-CL (Section 5):
+- The tsbRapidFX compiler and runtime and the tsb.mobile API, which the plugins contain, are
+  licensed under the Apache License 2.0 and published as source at
+  https://github.com/thorstenstueker/tsbRapidFX. This file cannot narrow that licence.
+- The port of OpenJDK's java.desktop that the tsb.mobile Swing route uses is licensed under the
+  GNU General Public License, version 2, with the Classpath Exception; its complete source is at
+  https://github.com/thorstenstueker/tsbmobile-openjdk-port.
+- Third-party components are licensed under their own terms; each plugin zip lists them, with their
+  full licence texts, in THIRD-PARTY-NOTICES.txt.
