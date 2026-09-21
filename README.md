@@ -158,7 +158,7 @@ permission.
 This repository content is courtesy of. For legal requests or complaints:
 
 
-Impressum
+Impressum legal notes
 
 Thorsten Stüker – Barntrup
 Stüker UG
