@@ -157,8 +157,33 @@ permission.
 
 This repository content is courtesy of. For legal requests or complaints:
 
-Thorsten Stueker
-Lemgoer Str. 6
+
+Impressum
+
+Thorsten Stüker – Barntrup
+Stüker UG
+verantwortlich für den Inhalt / responsible for the content: Thorsten Stüker
+Registration: Handelsregister am AG Lemgo, HRB 8858
+
+UST-ID / VAT ID: DE318562361
+
+Adresse / Adress
+Hamelner Straße 1
 32683 Barntrup
 Germany
-mail: legal@stueker.org
+
+Phone +(49) 05263-4001590
+
+mail legal@stueker.org
+web stueker@stueker.org
+
+
+
+mail ug@stueker.org
+web stueker@stueker.org
+
+Öffnungszeiten / Office-hours
+Mon. - Fr.: 10am – 4pm 
+responsible for the content:
+
+Thorsten Stüker, Hamelner Str. 1, 32683 Barntrup, Germany
