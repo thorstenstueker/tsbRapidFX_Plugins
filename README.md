@@ -152,3 +152,13 @@ separately at [thorstenstueker/tsbRapidFX](https://github.com/thorstenstueker/ts
 split is deliberate: whatever happens to this company, an application written with tsbRapidFX can
 still be rebuilt — without the designer, without automation, but without asking anybody's
 permission.
+
+## Legal
+
+This repository content is courtesy of. For legal requests or complaints:
+
+Thorsten Stueker
+Lemgoer Str. 6
+32683 Barntrup
+Germany
+mail: legal@stueker.org
