@@ -3946,6 +3946,85 @@ The carrier is `tsbWebTheme`: it reads the `UIDefaults`, travels as CSS variable
 
 Passwords are checked with `PBKDF2WithHmacSHA256`, 210,000 rounds, salted per user — 83 ms per attempt, contained in the JDK, and it saves the dependency bcrypt or Argon2 would cost. Nothing is stored in clear and nothing is logged.
 
+### Pages without a session
+
+Everything in this chapter so far is a Swing form mirrored to a browser, and every visitor looking at one costs a
+session and the platform thread that belongs to it. That is the right trade for somebody *using*
+the application and the wrong one for a crawler, a link preview, or a program calling an API. For
+those there are **plain routes**: answered before a session is looked for, with no cookie, no
+thread and no `tsbWebSession`.
+
+```basic
+' Hung on the configuration before the server starts.
+config.addRoute("/forum", AddressOf Forum)                       ' GET and HEAD
+config.addPostRoute("/sign", AddressOf Sign)                     ' and POST, up to 64 KB
+config.addPostRoute("/api/documents", AddressOf Upload, 20 * 1024 * 1024)   ' POST up to 20 MB
+
+Private Function Forum(r As tsbWebRequest) As tsbWebReply
+    Return tsbWebReply.html("<h1>" + Html.Esc(r.getPath()) + "</h1>").withCacheSeconds(300)
+End Function
+```
+
+A route is given a `tsbWebRequest` and answers with a `tsbWebReply`. Longest prefix wins, so
+`/forum` and `/forum/rss` can both exist. `tsbWebSessionScope.current()` throws inside a route —
+that is the property being bought, not a limitation.
+
+**What a route may read**: the path, the query (`getQuery`, `getQueryInt`), the client address,
+a short list of headers, and for POST the body:
+
+| | |
+|---|---|
+| `getBody()`, `getBodyAsText()` | the raw body — a JSON call |
+| `getForm("name")`, `getFormNames()` | a posted form, whether `x-www-form-urlencoded` or multipart |
+| `getPart("file")`, `getParts()` | an uploaded file as `tsbWebPart`: `getFileName()`, `getContentType()`, `getBytes()` |
+| `getUser()`, `hasRole("admin")`, `getBasicLogin()` | who is calling, when they say so — see below |
+
+**What a route may answer**: `tsbWebReply.html`, `text`, `json`, `xml`, `bytes(status, type, body)`,
+`redirect`, `notFound`, `notModified`, `unauthorized(realm)`, `forbidden`; on any of them
+`withHeader`, `withCacheSeconds`, `withETag`, `asDownload(name)`. A PDF shown inline:
+
+```basic
+Return tsbWebReply.bytes(200, "application/pdf", pdf) _
+        .withHeader("Content-Disposition", "inline; filename=""vertrag.pdf""") _
+        .withCacheSeconds(0)
+```
+
+**The body limit is the route's own.** Sixty-four kilobytes by default — a form, a JSON body, a
+drawn signature. A route that takes a file names its limit when it is registered, up to 256 MB.
+A body above the limit is answered **413** without being read; it is never quietly cut short.
+
+**Credentials without a session.** A program calling an API sends `Authorization: Basic` on every
+request, and the route asks `r.getUser()`. The check runs against the same `tsbWebAuthProvider`
+that signs people into sessions, through the same attempt limiter keyed by address — so an API is
+not a way around the sign-in limits. `Nothing` means no credentials, wrong ones, or too many wrong
+ones lately; the route answers `tsbWebReply.unauthorized("api")`, which carries the
+`WWW-Authenticate` header a client needs.
+
+```basic
+Private Function Documents(r As tsbWebRequest) As tsbWebReply
+    If Not r.hasRole("admin") Then Return tsbWebReply.unauthorized("api")
+    If r.getMethod() = "POST" Then
+        Dim file As tsbWebPart = r.getPart("file")
+        If file Is Nothing OrElse file.getSize() = 0 Then Return tsbWebReply.json(400, "{""error"":""no file""}")
+        ' ...
+    End If
+    Return tsbWebReply.json("{""status"":""ok""}")
+End Function
+```
+
+`Cookie` stays unreadable, and the difference is not a fine one. A cookie is *ambient*: the browser
+attaches it on its own, which is what makes a session out of it and what makes cross-site request
+forgery possible. Credentials in `Authorization` are sent by a program that decided to send them,
+on this request, and identify nobody beyond it.
+
+**CSRF on a route, therefore, does not arise.** A route trusts nothing the browser adds by itself.
+A form posted to a route is authorised by what stands in it — a secret in the path such as
+`/sign/<token>`, or credentials the caller typed — and a page on another site cannot supply either.
+The session's own CSRF token protects the mirrored application; routes need none.
+
+**What a route cannot do**: stream — the reply is a value, built in memory; read a cookie; reach
+the session; or set one. A route that needs a session is a form.
+
 ### Capacity: the numbers
 
 Two campaigns, both with server and load generator in **separate JVMs** — otherwise the test client's own sockets count against the server.
