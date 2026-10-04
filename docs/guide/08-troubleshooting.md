@@ -60,6 +60,12 @@ doSomething( _
     "and this")
 ```
 
+**Since 05.10.2026 the compiler says so itself.** The error used to be
+`No overload of 'doSomething' accepts (<Lambda>)` and nothing more, which is true and tells you
+nothing: the second argument is not missing, it is inside the first. Now the same message carries
+a line naming the cause — but only when there really is a comma in the lambda's body, so a call
+that is simply short of an argument still says only that.
+
 ---
 
 ## Running — desktop

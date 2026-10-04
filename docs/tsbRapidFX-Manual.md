@@ -1527,19 +1527,39 @@ The shortcut applies only when there is **no real field** of that name and the m
 
 **Java method names are case-exact.** It is `signIn`, not `SignIn`. Only JavaBean *properties* get the VB spelling: `.Text`, `.Password`, `.Font`, `.ToolTipText`.
 
-### Generics are erased
+### Generics: `(Of …)`
 
-tsbRapidFX has no type arguments. An `ArrayList` is a raw `ArrayList`, and what comes out is `Object`:
+Write the type arguments and what comes out is what you put in:
 
 ```basic
-Dim list As ArrayList = New ArrayList()
-list.add("Hello")
+Dim namen As List(Of String) = New ArrayList(Of String)()
+namen.add("Hello")
 
-Dim s As String = CType(list.get(0), String)
+Dim s As String = namen.get(0)        ' a String, no CType
 Print s.length()
+
+For Each n In namen                    ' n is a String too, without saying so
+    Print n.toUpperCase()
+Next
 ```
 
-That costs one `CType` at the point of extraction and nothing else. Putting things *in* boxes automatically: `list.add(5)` stores an `Integer`.
+`(Of …)` and not `<…>`, because `List<String>` cannot be told apart from `a < b` without more lookahead than this grammar has. It is VB.NET's form, and it nests: `Map(Of String, List(Of Customer))` is what a grouped query comes back as.
+
+**A raw type still works and still gives back `Object`.** Nothing written before this existed has changed:
+
+```basic
+Dim alt As ArrayList = New ArrayList()
+alt.add("Hello")
+Dim s2 As String = CType(alt.get(0), String)
+```
+
+Three things to know.
+
+**A primitive cannot be a type argument.** `List(Of Integer)` is an error, because `Integer` here *is* `int` and a list of those does not exist on the JVM. Write `List(Of java.lang.Integer)`; the message says so. Putting values *in* still boxes by itself — `list.add(5)` stores an `Integer`.
+
+**You cannot declare a generic type of your own.** `Public Class Box(Of T)` is not in this version. Using the type arguments of types that already have them is, and that is what a program does every day.
+
+**There are no bounds and no wildcards to write.** They are *read* — a Java library's `List<? extends Customer>` arrives as a list of `Customer` — but `(Of T As Comparable)` is not something you can declare. Which also means an argument that would not satisfy a bound in Java is accepted here, and shows up as a failed cast where it is used rather than as an error where it is written. That is the same place Java's own unchecked warnings put it.
 
 ### Arrays
 
@@ -1773,28 +1793,35 @@ Javadoc:   public interface List<E>
            boolean add(E e)
 ```
 
-That `E` looks like a type you chose. In tsbRapidFX there is no type argument, so **`get` gives you back an `Object`** and you say what it is:
+That `E` is the type argument, and you write it with `(Of …)`:
 
 ```basic
 Imports java.util
 
-Var names As ArrayList = New ArrayList()
+Var names As List(Of String) = New ArrayList(Of String)()
 names.add("World")
 
-Var first As String = CType(names.get(0), String)
+Var first As String = names.get(0)
 Print first.toUpperCase()
 ```
 
-Putting things *in* needs nothing: `add(E)` accepts anything, and a number is boxed on the way. Taking things *out* is where the cast goes.
+`E get(int)` therefore reads as "gives back whatever you said" — a `String` here. Putting things *in* needs nothing extra: `add(E)` takes a `String` because that is what `E` is, and a number is boxed on the way where the argument is a wrapper.
 
-> **Why it is like this.** Generics are erased on the JVM: `List<String>` and `List<Integer>` are the same class at run time, and the type argument exists only in the Java compiler. tsbRapidFX does not carry one, so it tells you the truth — `Object` — instead of a promise it cannot keep.
+Leave the `(Of …)` out and the old behaviour is still there: a raw `ArrayList`, `get` giving an `Object`, and a `CType` at the point of extraction.
+
+> **What is really happening.** Generics are erased on the JVM: `List<String>` and `List<Integer>` are the same class at run time, and the argument exists only in the compiler. So does ours. `names.get(0)` compiles to the same `invokeinterface` either way, followed by a `checkcast` to `String` — which is exactly what javac writes for the same line of Java. The type argument buys the check at compile time and one instruction at run time; it does not put anything into the class file that was not there before.
+
+> **Which also means it can fail at the point of use.** A `List(Of Customer)` handed a raw list that really holds strings will throw a `ClassCastException` at the first `get`, not at the assignment. Java has the same hole and calls it an unchecked warning. It cannot arise in a program that writes `(Of …)` throughout; it arises where typed and raw meet.
 
 ### The rules, in one table
 
 | Javadoc writes | You write | Note |
 |---|---|---|
-| `new ArrayList<>()` | `New ArrayList()` | no type argument |
-| `E get(int)` | returns `Object` | `CType(..., String)` |
+| `new ArrayList<String>()` | `New ArrayList(Of String)()` | `(Of …)`, not `<…>` |
+| `new ArrayList<>()` | `New ArrayList(Of String)()` | there is no empty diamond |
+| `E get(int)` | returns what you wrote | `Object` from a raw type |
+| `List<? extends Customer>` | arrives as `List(Of Customer)` | read, not written |
+| `class Box<T>` | not in this version | use the arguments, do not declare them |
 | `null` | `Nothing` | `Null` and `Nil` spell the same |
 | `true` / `false` | `true` / `false` | either case; prints as `true` |
 | `static` | `Shared` or `Static` | both work, any case |

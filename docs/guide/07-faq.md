@@ -8,7 +8,7 @@
 
 No, and it does not pretend to be. The grammar is the classic Basic grammar — `Dim`, `Sub`,
 `Select Case`, `For Each` — and underneath is the JVM rather than the VB runtime. A RapidFX class
-*is* a Java class. the *Moving from VB6* chapter of the [complete manual](../tsbRapidFX-Manual.md) lists what stays the
+*is* a Java class. [Chapter 9 of the language manual](../../docs/09-from-vb6.md) lists what stays the
 same, what changes and what is missing.
 
 **Can I use Java libraries?**
@@ -36,9 +36,28 @@ a Java project and it is a library.
 
 **Generics?**
 
-You can *use* generic Java types — `ArrayList`, `Map`, `Optional` — and the compiler checks what
-goes in and comes out. You cannot *declare* a generic type of your own. In practice that matters
-less than it sounds for the kind of program this is for.
+Write the type arguments with `(Of …)` and what comes out is what you put in:
+
+```basic
+Dim kunden As List(Of Customer) = New ArrayList(Of Customer)()
+kunden.add(k)
+
+Dim erster As Customer = kunden.get(0)     ' no CType
+For Each k In kunden                        ' k is a Customer too
+    Print k.Name
+Next
+```
+
+`(Of …)` and not `<…>`, because `List<String>` cannot be told apart from `a < b` in a Basic
+grammar. It nests: `Map(Of String, List(Of Customer))`.
+
+A raw `ArrayList` still works and still gives back `Object`, so nothing written before this
+changed. A primitive cannot be an argument — `List(Of Integer)` is an error, because `Integer`
+here *is* `int`; write `List(Of java.lang.Integer)`.
+
+What you cannot do is **declare** a generic type of your own: `Public Class Box(Of T)` is not in
+this version. For the kind of program this is for, that matters much less than using the arguments
+of the types that already have them — which is what the collections are.
 
 **Lambdas?**
 
