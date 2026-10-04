@@ -1,0 +1,250 @@
+' The article list, on a tablet.
+'
+' Everything above the banner is mine. The designer writes back what is below it and leaves
+' this half alone.
+'
+' The data layer underneath is the desktop program's, file for file — ArticleFile, Article,
+' Database, Util. What changed is this screen: a JTable in a JPanel became a tsb.mobile Table
+' on a Screen, and the events are the facade's rather than Swing's.
+
+Imports tsb.mobile
+Imports java.util
+
+Public Class ArticleListForm
+    Implements Form
+
+    ' The rows behind the table, in the order the table shows them. A Table hands back a row
+    ' index and nothing else, so this is what turns "row 3" back into an article.
+    Private shown As ArrayList = New ArrayList()
+
+    Private Sub OnFormBuilt()
+        Database.Start()
+        ' Before anything else: the shell may not know about this instance yet — see
+        ' Shell.UseArticles for why that matters.
+        Shell.UseArticles(Me)
+        ' The navigation. The handler ignores its own area — see OnAreaChosen.
+        drpArea.setItems(Shell.Areas())
+        drpArea.setSelectedIndex(1)
+
+        tbl1.setColumns("Number", "Name", "Unit", "Price", "Stock")
+        ' The name gets the room. A number is eight characters and a price is six, and columns
+        ' that all claim a fifth of the width would waste most of a tablet's.
+        tbl1.setColumnWeights(2, 6, 1, 2, 2)
+
+        Fill("")
+    End Sub
+
+    ' Re-reads with whatever is in the search box, keeping the chosen row.
+    '
+    ' Called by the shell just before it shows this form again — the same way MainWindow does it
+    ' on the desktop. There is no OnShow callback in tsb.mobile and this is why none is needed:
+    ' only the shell knows whether coming back should re-read, and for a sheet it should not.
+    Public Sub Refresh()
+        drpArea.setSelectedIndex(1)
+
+        Dim row As Integer = tbl1.getSelectedRow()
+        Fill(txt1.getText())
+        If row >= 0 AndAlso row < shown.size() Then
+            tbl1.setSelectedRow(row)
+        End If
+    End Sub
+
+    ' Fills the table from the database. One place, so the search field and the initial load
+    ' cannot drift apart.
+    Private Sub Fill(text As String)
+        shown = ArticleFile.Search(text)
+        tbl1.clearRows()
+
+        Dim i As Integer
+        For i = 0 To shown.size() - 1
+            Dim a As Article = CType(shown.get(i), Article)
+            tbl1.addRow(a.Number, a.Name, a.Unit, Util.Money(a.Price), Util.QuantityText(a.Stock))
+        Next i
+
+        lbl2.setText(shown.size() + " articles")
+        ' Util.TodayIso() goes through Today() and Format() — so java.time. On iOS that is the
+        ' point where it crashes; here it simply stands there.
+        lbl3.setText("Today: " + Util.DateShown(Util.TodayIso()) + "  ·  " _
+                + Util.MoneyWithEuro(1405.39))
+    End Sub
+
+    ' Every keystroke, not a search button. The database is local and the table has a few dozen
+    ' rows; on a tablet a button is one more thing to reach for.
+    Private Sub OnSearchChange(source As Widget, text As String)
+        Fill(text)
+    End Sub
+
+    ' --- the navigation -------------------------------------------------------------
+
+    ' Switches area — and ignores its own number.
+    '
+    ' NOT through a building flag, although the desktop does it that way. Android's Spinner
+    ' calls its listener **afterwards**, after the layout — by then the flag is long back to
+    ' False, and the form navigates away from itself. Measured: display() was called twice,
+    ' the second time after the click handler.
+    '
+    ' Comparing against its own index is immune to any ordering, and it also says something
+    ' true: choosing the area you are already in does nothing.
+    Private Sub OnAreaChosen(source As Widget, index As Integer, text As String)
+        If index = 1 Then
+            Exit Sub
+        End If
+        Shell.GoTo(index)
+    End Sub
+
+    ' --- what the buttons do ---------------------------------------------------------
+
+    Private Sub OnNew(source As Button)
+        Shell.ShowArticleSheet(0)
+    End Sub
+
+    Private Sub OnEdit(source As Button)
+        Dim a As Article = Chosen()
+        If a Is Nothing Then
+            lbl3.setText("Choose a row first.")
+            Exit Sub
+        End If
+        Shell.ShowArticleSheet(a.Id)
+    End Sub
+
+    ' The row that is selected, or Nothing.
+    '
+    ' `shown` lies parallel to the table, so a row number is an index — no looking anything up
+    ' by the text in a cell. Same as the desktop.
+    Private Function Chosen() As Article
+        Dim row As Integer = tbl1.getSelectedRow()
+        If row < 0 OrElse row >= shown.size() Then
+            Return Nothing
+        End If
+        Return CType(shown.get(row), Article)
+    End Function
+
+    Private Sub OnRowChosen(source As Table, row As Integer)
+        If row < 0 OrElse row >= shown.size() Then
+            lbl3.setText("")
+            Exit Sub
+        End If
+        Dim a As Article = CType(shown.get(row), Article)
+        lbl3.setText(a.Number + " — " + a.Name + ", " + Util.Money(a.Price) _
+                + " per " + a.Unit)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=ArticleListForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Dropdown drpArea L=24 T=16 W=260 H=48
+    Private drpArea As Dropdown = New Dropdown()
+
+    ' @tsbmob Label lbl1 L=24 T=16@drpArea.BOTTOM W=300 H=36
+    Private lbl1 As Label = New Label()
+
+    ' @tsbmob TextField txt1 L=24 T=12@lbl1.BOTTOM R=200 W=600 H=48
+    Private txt1 As TextField = New TextField()
+
+    ' @tsbmob Label lbl2 L=24@txt1.RIGHT T=12@lbl1.BOTTOM R=24 W=160 H=48
+    Private lbl2 As Label = New Label()
+
+    ' @tsbmob Table tbl1 L=24 T=16@txt1.BOTTOM R=24 B=64 W=1064 H=620
+    Private tbl1 As Table = New Table()
+
+    ' @tsbmob Button btnNew L=24@drpArea.RIGHT T=16 W=150 H=48
+    Private btnNew As Button = New Button()
+
+    ' @tsbmob Button btnEdit L=12@btnNew.RIGHT T=16 W=150 H=48
+    Private btnEdit As Button = New Button()
+
+    ' @tsbmob Label lbl3 L=24 T=12@tbl1.BOTTOM R=24 W=1064 H=28
+    Private lbl3 As Label = New Label()
+
+    ' Builds this form's screen.
+    Public Function build() As Screen
+        schirm.setTitle("Articles")
+
+        drpArea.setName("drpArea")
+        drpArea.onSelect(AddressOf OnAreaChosen)
+        drpArea.setSize(260, 48)
+        schirm.add(drpArea)
+
+        lbl1.setName("lbl1")
+        lbl1.setText("Articles")
+        lbl1.setTextSize(26)
+        lbl1.setBold(True)
+        lbl1.setSize(300, 36)
+        schirm.add(lbl1)
+
+        txt1.setName("txt1")
+        txt1.setHint("Search number, name or description")
+        txt1.onChange(AddressOf OnSearchChange)
+        txt1.setHeight(48)
+        schirm.add(txt1)
+
+        lbl2.setName("lbl2")
+        lbl2.setText("")
+        lbl2.setSize(160, 48)
+        schirm.add(lbl2)
+
+        tbl1.setName("tbl1")
+        tbl1.onRow(AddressOf OnRowChosen)
+        schirm.add(tbl1)
+
+        btnNew.setName("btnNew")
+        btnNew.setText("New")
+        btnNew.onClick(AddressOf OnNew)
+        btnNew.setSize(150, 48)
+        schirm.add(btnNew)
+
+        btnEdit.setName("btnEdit")
+        btnEdit.setText("Edit")
+        btnEdit.onClick(AddressOf OnEdit)
+        btnEdit.setSize(150, 48)
+        schirm.add(btnEdit)
+
+        lbl3.setName("lbl3")
+        lbl3.setText("")
+        lbl3.setHeight(28)
+        schirm.add(lbl3)
+
+        schirm.anchor(drpArea, Edge.LEFT, 24)
+        schirm.anchor(drpArea, Edge.TOP, 16)
+        schirm.anchor(lbl1, Edge.LEFT, 24)
+        schirm.anchor(lbl1, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+        schirm.anchor(txt1, Edge.LEFT, 24)
+        schirm.anchor(txt1, Edge.TOP, 12, lbl1, Edge.BOTTOM)
+        schirm.anchor(txt1, Edge.RIGHT, 200)
+        schirm.anchor(lbl2, Edge.LEFT, 24, txt1, Edge.RIGHT)
+        schirm.anchor(lbl2, Edge.TOP, 12, lbl1, Edge.BOTTOM)
+        schirm.anchor(lbl2, Edge.RIGHT, 24)
+        schirm.anchor(tbl1, Edge.LEFT, 24)
+        schirm.anchor(tbl1, Edge.TOP, 16, txt1, Edge.BOTTOM)
+        schirm.anchor(tbl1, Edge.RIGHT, 24)
+        schirm.anchor(tbl1, Edge.BOTTOM, 64)
+        schirm.anchor(btnNew, Edge.LEFT, 24, drpArea, Edge.RIGHT)
+        schirm.anchor(btnNew, Edge.TOP, 16)
+        schirm.anchor(btnEdit, Edge.LEFT, 12, btnNew, Edge.RIGHT)
+        schirm.anchor(btnEdit, Edge.TOP, 16)
+        schirm.anchor(lbl3, Edge.LEFT, 24)
+        schirm.anchor(lbl3, Edge.TOP, 12, tbl1, Edge.BOTTOM)
+        schirm.anchor(lbl3, Edge.RIGHT, 24)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+End Class

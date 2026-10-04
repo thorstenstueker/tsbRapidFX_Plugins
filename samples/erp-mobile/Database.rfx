@@ -1,0 +1,277 @@
+' The SQLite file, and everything that has to happen exactly once.
+'
+' One connection per operation, not one for the whole program. On a desktop nobody would be hurt
+' by a single connection held open - but a connection that lives in a field is a connection
+' somebody has to remember to close, and the day the program grows a background thread it becomes
+' a bug. Opening a SQLite file costs a file handle and no network at all. Whoever opens a
+' connection closes it in the same Using, and there is nothing left to remember.
+'
+' The driver is registered explicitly. The JVM finds it through the service loader only when the
+' program runs from a jar with a matching class path - not when it is started from the IDE, and
+' then one meets a "No suitable driver" error that has nothing to do with the program.
+Imports java.sql
+Imports java.io
+Imports java.nio.file
+
+Module Database
+
+    ' So that creating and filling happen once, even if Sub Main tries twice.
+    Private ready As Boolean = False
+
+    ' Where the file lives: the one directory an Android application may write to.
+    '
+    ' The desktop version walks up the tree looking for a .rfxproj, because on a desktop the
+    ' working directory depends on how the program was started. On a phone there is no such
+    ' question and no such freedom — getFilesDir() is the answer, and tsb.mobile.Data hands it
+    ' over.
+    Public Function FilePath() As String
+        Return tsb.mobile.Data.file("rapidxerp.db")
+    End Function
+
+    ' A fresh connection. Always into a Using, never into a field.
+    Public Function Connect() As Connection
+        Dim c As Connection = DriverManager.getConnection("jdbc:sqlite:" + FilePath())
+        Dim s As Statement = c.createStatement()
+        ' Wait five seconds rather than give up at once. One person cannot collide with
+        ' themselves - but two copies of the program pointed at the same file on a shared
+        ' drive can, and that is a thing people do.
+        s.executeUpdate("PRAGMA busy_timeout = 5000")
+        s.executeUpdate("PRAGMA foreign_keys = ON")
+        s.close()
+        Return c
+    End Function
+
+    ' The id SQLite just handed out, for the row that was inserted last on this connection.
+    '
+    ' The desktop asks for it through JDBC's generated keys — prepareStatement with
+    ' RETURN_GENERATED_KEYS, then getGeneratedKeys(). That works on the sqlite-jdbc driver used
+    ' on the desktop and on Android, and it is the first thing in the whole data layer that does
+    ' *not* travel: iOS uses javasqlite, MobiVM's built-in driver, and it answers
+    '
+    '     java.sql.SQLFeatureNotSupportedException: generated keys not supported
+    '
+    ' to both forms — with the flag and without it. Measured in experiments/m9-mobivm3.
+    '
+    ' Generated keys are an optional JDBC feature; a driver may decline them. last_insert_rowid()
+    ' is SQLite's own answer to the same question and every SQLite driver has it, so this is the
+    ' portable form and not an iOS special case. It has to run on the same connection as the
+    ' INSERT — that is what makes it safe with several connections in play.
+    Public Function LastId(c As Connection) As Integer
+        Dim id As Integer = 0
+        Dim s As Statement = c.createStatement()
+        Dim r As ResultSet = s.executeQuery("SELECT last_insert_rowid()")
+        If r.next() Then
+            id = r.getInt(1)
+        End If
+        r.close()
+        s.close()
+        Return id
+    End Function
+
+    ' Register the driver, create the folder, create the tables, and fill them the first time.
+    ' Called from Sub Main before the first window - so from exactly one thread.
+    Public Sub Start()
+        If ready Then
+            Exit Sub
+        End If
+        Dim file As java.io.File = New java.io.File(FilePath())
+        Dim folder As java.io.File = file.getParentFile()
+        If folder IsNot Nothing Then
+            folder.mkdirs()
+        End If
+
+        Using c As Connection = Connect()
+            Tables(c)
+            SampleData(c)
+        End Using
+        ready = True
+    End Sub
+
+    ' --- the schema --------------------------------------------------------------------
+
+    Private Sub Tables(c As Connection)
+        Dim s As Statement = c.createStatement()
+
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS users (" _
+                + "login TEXT PRIMARY KEY, " _
+                + "displayname TEXT NOT NULL, " _
+                + "password TEXT NOT NULL)")
+
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS userrole (" _
+                + "login TEXT NOT NULL, " _
+                + "role TEXT NOT NULL)")
+
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS customer (" _
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, " _
+                + "number TEXT NOT NULL, " _
+                + "name TEXT NOT NULL, " _
+                + "contact TEXT, " _
+                + "street TEXT, " _
+                + "postcode TEXT, " _
+                + "city TEXT, " _
+                + "country TEXT, " _
+                + "email TEXT, " _
+                + "phone TEXT, " _
+                + "vatid TEXT, " _
+                + "note TEXT)")
+
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS article (" _
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, " _
+                + "number TEXT NOT NULL, " _
+                + "name TEXT NOT NULL, " _
+                + "description TEXT, " _
+                + "unit TEXT, " _
+                + "price REAL NOT NULL DEFAULT 0, " _
+                + "vat REAL NOT NULL DEFAULT 19, " _
+                + "stock REAL NOT NULL DEFAULT 0)")
+
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS document (" _
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, " _
+                + "kind TEXT NOT NULL, " _
+                + "number TEXT NOT NULL, " _
+                + "customer_id INTEGER, " _
+                + "docdate TEXT, " _
+                + "status TEXT, " _
+                + "subject TEXT, " _
+                + "source_id INTEGER)")
+
+        ' The lines belong to their document and go when it goes.
+        s.executeUpdate("CREATE TABLE IF NOT EXISTS documentline (" _
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT, " _
+                + "document_id INTEGER NOT NULL, " _
+                + "seq INTEGER NOT NULL, " _
+                + "article_id INTEGER, " _
+                + "number TEXT, " _
+                + "name TEXT, " _
+                + "quantity REAL, " _
+                + "unit TEXT, " _
+                + "unitprice REAL, " _
+                + "vat REAL, " _
+                + "FOREIGN KEY (document_id) REFERENCES document(id) ON DELETE CASCADE)")
+
+        s.executeUpdate("CREATE INDEX IF NOT EXISTS ix_line_document " _
+                + "ON documentline(document_id, seq)")
+        s.executeUpdate("CREATE INDEX IF NOT EXISTS ix_document_kind ON document(kind, number)")
+        s.close()
+    End Sub
+
+    ' --- the first start ---------------------------------------------------------------
+
+    ' Sample data, but only into an empty database. A second start must add nothing and
+    ' overwrite nothing.
+    '
+    ' The sample business is a German one - German customers, German article names, amounts in
+    ' euro and 19 % VAT. Only the program around it is English.
+    Private Sub SampleData(c As Connection)
+        If RowCount(c, "users") = 0 Then
+            AddUser(c, "admin", "Administration", "secret", "admin")
+            AddUser(c, "anna", "Anna Berger", "secret", "sales")
+        End If
+        If RowCount(c, "customer") = 0 Then
+            SampleCustomers(c)
+        End If
+        If RowCount(c, "article") = 0 Then
+            SampleArticles(c)
+        End If
+    End Sub
+
+    Private Function RowCount(c As Connection, table As String) As Integer
+        Dim s As Statement = c.createStatement()
+        Dim r As ResultSet = s.executeQuery("SELECT COUNT(*) FROM " + table)
+        Dim value As Integer = 0
+        If r.next() Then
+            value = r.getInt(1)
+        End If
+        r.close()
+        s.close()
+        Return value
+    End Function
+
+    ' A sample password is hashed too. A database file travels with the project, and a plain
+    ' password inside it is one somebody has reused somewhere else.
+    Private Sub AddUser(c As Connection, login As String, name As String, _
+                        password As String, role As String)
+        Dim b As PreparedStatement = c.prepareStatement( _
+                "INSERT INTO users (login, displayname, password) VALUES (?, ?, ?)")
+        b.setString(1, login)
+        b.setString(2, name)
+        b.setString(3, Passwords.Hash(password))
+        b.executeUpdate()
+        b.close()
+
+        Dim r As PreparedStatement = c.prepareStatement( _
+                "INSERT INTO userrole (login, role) VALUES (?, ?)")
+        r.setString(1, login)
+        r.setString(2, role)
+        r.executeUpdate()
+        r.close()
+    End Sub
+
+    Private Sub SampleCustomers(c As Connection)
+        AddCustomer(c, "K-1001", "Meyer Elektrotechnik GmbH", "Frau Sabine Meyer", _
+              "Industriestrasse 14", "49076", "Osnabrueck", "s.meyer@meyer-et.de", "0541 123456")
+        AddCustomer(c, "K-1002", "Nordlicht Yachtbau AG", "Herr Jan Petersen", _
+              "Am Hafen 3", "24103", "Kiel", "petersen@nordlicht-yacht.de", "0431 998877")
+        AddCustomer(c, "K-1003", "Bauzentrum Sued KG", "Herr Markus Adler", _
+              "Ulmer Weg 88", "89073", "Ulm", "adler@bauzentrum-sued.de", "0731 445566")
+        AddCustomer(c, "K-1004", "Praxis Dr. Lindner", "Frau Dr. Eva Lindner", _
+              "Kurfuerstendamm 210", "10719", "Berlin", "info@praxis-lindner.de", "030 8877665")
+        AddCustomer(c, "K-1005", "Hansa Logistik GmbH", "Herr Timo Voss", _
+              "Speicherstrasse 5", "20457", "Hamburg", "voss@hansa-logistik.de", "040 223344")
+        AddCustomer(c, "K-1006", "Alpenhof Hotelbetriebe", "Frau Christa Huber", _
+              "Talstrasse 1", "83471", "Berchtesgaden", "huber@alpenhof.de", "08652 4711")
+        AddCustomer(c, "K-1007", "Werkstatt Kern e.K.", "Herr Andreas Kern", _
+              "Bahnhofstrasse 27", "34117", "Kassel", "kern@werkstatt-kern.de", "0561 909090")
+        AddCustomer(c, "K-1008", "Stadtwerke Rheinbach", "Frau Petra Sommer", _
+              "Versorgungsweg 2", "53359", "Rheinbach", "sommer@sw-rheinbach.de", "02226 5544")
+    End Sub
+
+    Private Sub AddCustomer(c As Connection, number As String, name As String, _
+                            contact As String, street As String, postcode As String, _
+                            city As String, email As String, phone As String)
+        Dim b As PreparedStatement = c.prepareStatement( _
+                "INSERT INTO customer (number, name, contact, street, postcode, city, country, " _
+                + "email, phone, vatid, note) VALUES (?, ?, ?, ?, ?, ?, 'Deutschland', ?, ?, '', '')")
+        b.setString(1, number)
+        b.setString(2, name)
+        b.setString(3, contact)
+        b.setString(4, street)
+        b.setString(5, postcode)
+        b.setString(6, city)
+        b.setString(7, email)
+        b.setString(8, phone)
+        b.executeUpdate()
+        b.close()
+    End Sub
+
+    Private Sub SampleArticles(c As Connection)
+        AddArticle(c, "A-1001", "Kabelbinder 200 mm, schwarz", "Piece", 0.09, 19, 12500)
+        AddArticle(c, "A-1002", "Installationsrohr M25, 3 m", "Piece", 2.45, 19, 840)
+        AddArticle(c, "A-1003", "Schaltschrank 600x800, IP55", "Piece", 389.0, 19, 12)
+        AddArticle(c, "A-1004", "Leitung NYM-J 3x1,5", "Meter", 0.86, 19, 4200)
+        AddArticle(c, "A-1005", "LED-Panel 40 W, 4000 K", "Piece", 54.9, 19, 260)
+        AddArticle(c, "A-1006", "Fehlerstromschutzschalter 40 A", "Piece", 78.5, 19, 95)
+        AddArticle(c, "A-1007", "Reihenklemme 4 mm2", "Piece", 0.72, 19, 8600)
+        AddArticle(c, "A-1008", "Montagearbeit Elektro", "Hour", 79.0, 19, 0)
+        AddArticle(c, "A-1009", "Planungsleistung", "Hour", 115.0, 19, 0)
+        AddArticle(c, "A-1010", "Anfahrtspauschale", "Piece", 45.0, 19, 0)
+        AddArticle(c, "A-1011", "Fachbuch Elektroplanung", "Piece", 68.0, 7, 30)
+        AddArticle(c, "A-1012", "Werkzeugkoffer 24-teilig", "Piece", 149.0, 19, 22)
+    End Sub
+
+    Private Sub AddArticle(c As Connection, number As String, name As String, _
+                           unit As String, price As Double, vat As Double, stock As Double)
+        Dim b As PreparedStatement = c.prepareStatement( _
+                "INSERT INTO article (number, name, description, unit, price, " _
+                + "vat, stock) VALUES (?, ?, '', ?, ?, ?, ?)")
+        b.setString(1, number)
+        b.setString(2, name)
+        b.setString(3, unit)
+        b.setDouble(4, price)
+        b.setDouble(5, vat)
+        b.setDouble(6, stock)
+        b.executeUpdate()
+        b.close()
+    End Sub
+
+End Module

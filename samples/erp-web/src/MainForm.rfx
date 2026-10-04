@@ -1,0 +1,264 @@
+' The shell: a header, the navigation, and below it the area the actual screen sits in.
+'
+' The whole "router" of this application is here, and it is a Select Case statement. There are no
+' addresses, no state machine and no navigation library: changing screen is a write into a
+' SessionStatic and a request for a rebuild, and Content() then decides afresh.
+Imports java.awt
+Imports java.awt.event
+Imports javax.swing
+Imports com.tsbweb.session
+
+Public Class MainForm
+
+    Public Sub New()
+        InitDesignerComponents()
+
+        lblSignedIn.Text = "Signed in: " _
+                + CType(tsbWebSession.User.get(), tsbWebUser).DisplayName
+        lblMessage.Text = Main.TakeMessage()
+
+        ' The content area gets a BorderLayout here instead of the anchors from the designer. It
+        ' holds exactly one child - the screen currently chosen - and that child should fill it.
+        ' In the designer it stays an empty panel with four anchors, so that one can see where it
+        ' sits and how it grows.
+        pnlContent.setLayout(New BorderLayout())
+        pnlContent.add(Content(), BorderLayout.CENTER)
+
+        MarkActive()
+    End Sub
+
+    ' Which screen stands in the content area.
+    '
+    ' A new instance every time. A form left lying between two rebuilds would be state outside
+    ' the session - and that is exactly the kind that belongs to the next user on a server.
+    Private Function Content() As Component
+        Select Case Main.CurrentScreen()
+            Case "customers"
+                Return New CustomerListForm().GetRootPane()
+            Case "customersheet"
+                Return New CustomerSheetForm().GetRootPane()
+            Case "articles"
+                Return New ArticleListForm().GetRootPane()
+            Case "articlesheet"
+                Return New ArticleSheetForm().GetRootPane()
+            Case "documents"
+                Return New DocumentListForm().GetRootPane()
+            Case "documentsheet"
+                Return New DocumentSheetForm().GetRootPane()
+        End Select
+        Return New CustomerListForm().GetRootPane()
+    End Function
+
+    ' The button belonging to the visible screen goes bold. No border and no colour: both would
+    ' have to match the theme, and the theme is the operator's to choose.
+    Private Sub MarkActive()
+        Dim screen As String = Main.CurrentScreen()
+        Dim kind As String = Main.CurrentDocumentKind()
+        Dim onDoc As Boolean = (screen = "documents") OrElse (screen = "documentsheet")
+
+        Bold(btnCustomers, (screen = "customers") OrElse (screen = "customersheet"))
+        Bold(btnArticles, (screen = "articles") OrElse (screen = "articlesheet"))
+        Bold(btnQuotations, onDoc AndAlso (kind = Document.QUOTATION))
+        Bold(btnDeliveryNotes, onDoc AndAlso (kind = Document.DELIVERYNOTE))
+        Bold(btnInvoices, onDoc AndAlso (kind = Document.INVOICE))
+    End Sub
+
+    Private Sub Bold(button As JButton, active As Boolean)
+        Dim style As Integer = Font.PLAIN
+        If active Then
+            style = Font.BOLD
+        End If
+        button.setFont(button.getFont().deriveFont(style))
+    End Sub
+
+    ' --- the navigation buttons ---------------------------------------------------------
+
+    Private Sub OnCustomers(e As ActionEvent)
+        Main.Show("customers")
+    End Sub
+
+    Private Sub OnArticles(e As ActionEvent)
+        Main.Show("articles")
+    End Sub
+
+    Private Sub OnQuotations(e As ActionEvent)
+        DocumentList(Document.QUOTATION)
+    End Sub
+
+    Private Sub OnDeliveryNotes(e As ActionEvent)
+        DocumentList(Document.DELIVERYNOTE)
+    End Sub
+
+    Private Sub OnInvoices(e As ActionEvent)
+        DocumentList(Document.INVOICE)
+    End Sub
+
+    Private Sub DocumentList(kind As String)
+        Main.DocumentKind = kind
+        Main.DocumentRow = -1
+        Main.DocumentSearch = ""
+        Main.Show("documents")
+    End Sub
+
+    ' Signs out and rebuilds - createRoot then decides on the sign-in screen again.
+    Private Sub OnSignOut(e As ActionEvent)
+        tsbWebSession.signOut()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                            TSB RAPIDFX WEB LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=MainForm root=AnchorPanel ziel=WEB platform=CUSTOM w=1180 h=760 showIn=false theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblHeader parent=rootPane L=24 T=16 W=360 H=30
+    Private lblHeader As JLabel = New JLabel()
+
+    ' @tsbswx Label lblSignedIn parent=rootPane T=20 R=148 W=400 H=24
+    Private lblSignedIn As JLabel = New JLabel()
+
+    ' @tsbswx Button btnSignOut parent=rootPane T=14 R=24 W=110 H=32
+    Private btnSignOut As JButton = New JButton()
+
+    ' @tsbswx Button btnCustomers parent=rootPane L=24 T=62 W=170 H=34
+    Private btnCustomers As JButton = New JButton()
+
+    ' @tsbswx Button btnArticles parent=rootPane L=204 T=62 W=170 H=34
+    Private btnArticles As JButton = New JButton()
+
+    ' @tsbswx Button btnQuotations parent=rootPane L=384 T=62 W=170 H=34
+    Private btnQuotations As JButton = New JButton()
+
+    ' @tsbswx Button btnDeliveryNotes parent=rootPane L=564 T=62 W=170 H=34
+    Private btnDeliveryNotes As JButton = New JButton()
+
+    ' @tsbswx Button btnInvoices parent=rootPane L=744 T=62 W=170 H=34
+    Private btnInvoices As JButton = New JButton()
+
+    ' @tsbswx Separator sepHeader parent=rootPane L=24 T=110 R=24 W=1132 H=8
+    Private sepHeader As JSeparator = New JSeparator()
+
+    ' @tsbswx Label lblMessage parent=rootPane L=24 T=120 R=24 W=1132 H=22
+    Private lblMessage As JLabel = New JLabel()
+
+    ' @tsbswx AnchorPanel pnlContent parent=rootPane L=24 T=146 R=24 B=24 W=1132 H=590
+    Private pnlContent As JPanel = New JPanel()
+    Private pnlContentLayout As SpringLayout = New SpringLayout()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1180, 760))
+
+        lblHeader.setName("lblHeader")
+        lblHeader.setFont(New Font("SansSerif", Font.BOLD, 20))
+        lblHeader.setText("RapidX ERP")
+        lblHeader.setPreferredSize(New Dimension(360, 30))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHeader, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHeader, 16, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblHeader)
+
+        lblSignedIn.setName("lblSignedIn")
+        lblSignedIn.setText("Signed in")
+        lblSignedIn.setHorizontalAlignment(SwingConstants.RIGHT)
+        lblSignedIn.setPreferredSize(New Dimension(400, 24))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblSignedIn, 20, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblSignedIn, -148, SpringLayout.EAST, rootPane)
+        rootPane.add(lblSignedIn)
+
+        btnSignOut.setName("btnSignOut")
+        btnSignOut.setText("Sign out")
+        btnSignOut.addActionListener(AddressOf OnSignOut)
+        btnSignOut.setPreferredSize(New Dimension(110, 32))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSignOut, 14, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnSignOut, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(btnSignOut)
+
+        btnCustomers.setName("btnCustomers")
+        btnCustomers.setText("Customers")
+        btnCustomers.addActionListener(AddressOf OnCustomers)
+        btnCustomers.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnCustomers, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnCustomers, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnCustomers)
+
+        btnArticles.setName("btnArticles")
+        btnArticles.setText("Articles")
+        btnArticles.addActionListener(AddressOf OnArticles)
+        btnArticles.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnArticles, 204, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnArticles, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnArticles)
+
+        btnQuotations.setName("btnQuotations")
+        btnQuotations.setText("Quotations")
+        btnQuotations.addActionListener(AddressOf OnQuotations)
+        btnQuotations.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnQuotations, 384, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnQuotations, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnQuotations)
+
+        btnDeliveryNotes.setName("btnDeliveryNotes")
+        btnDeliveryNotes.setText("Delivery notes")
+        btnDeliveryNotes.addActionListener(AddressOf OnDeliveryNotes)
+        btnDeliveryNotes.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnDeliveryNotes, 564, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnDeliveryNotes, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnDeliveryNotes)
+
+        btnInvoices.setName("btnInvoices")
+        btnInvoices.setText("Invoices")
+        btnInvoices.addActionListener(AddressOf OnInvoices)
+        btnInvoices.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnInvoices, 744, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnInvoices, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnInvoices)
+
+        sepHeader.setName("sepHeader")
+        sepHeader.setPreferredSize(New Dimension(1132, 8))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, sepHeader, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, sepHeader, 110, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, sepHeader, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(sepHeader)
+
+        lblMessage.setName("lblMessage")
+        lblMessage.setText("")
+        lblMessage.setPreferredSize(New Dimension(1132, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblMessage, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblMessage, 120, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblMessage, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(lblMessage)
+
+        pnlContent.setName("pnlContent")
+        pnlContent.setLayout(pnlContentLayout)
+        rootPaneLayout.putConstraint(SpringLayout.WEST, pnlContent, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, pnlContent, 146, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, pnlContent, -24, SpringLayout.EAST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.SOUTH, pnlContent, -24, SpringLayout.SOUTH, rootPane)
+        rootPane.add(pnlContent)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class

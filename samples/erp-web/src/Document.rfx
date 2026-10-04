@@ -1,0 +1,139 @@
+' A document and its lines.
+'
+' A quotation, a delivery note and an invoice are the same type with a different Kind. That is
+' not thrift - it is what makes carrying one over possible at all: a quotation becomes an
+' invoice by copying the head and changing the kind. Three classes would mean writing out every
+' conversion by hand.
+'
+' The document does its own arithmetic. Net, tax and gross are stored nowhere; they come from
+' the lines. A stored total that no longer matches its own rows is the bug every business
+' program has once.
+Imports java.util
+
+Public Class Document
+
+    Public Const QUOTATION As String = "Quotation"
+    Public Const DELIVERYNOTE As String = "Delivery note"
+    Public Const INVOICE As String = "Invoice"
+
+    Public Property Id As Integer
+    Public Property Kind As String
+    Public Property Number As String
+    Public Property CustomerId As Integer
+    Public Property CustomerName As String
+
+    ' The date as the database keeps it: "2026-09-08". Util.DateShown turns it into
+    ' "08.09.2026" for the screen, Util.DateToIso turns it back.
+    Public Property DateIso As String
+
+    Public Property Status As String
+    Public Property Subject As String
+    Public Property SourceId As Integer
+
+    ' The lines, in the order they appear on the document.
+    Public Property Lines As ArrayList
+
+    Public Sub New()
+        Id = 0
+        Kind = QUOTATION
+        Number = ""
+        CustomerId = 0
+        CustomerName = ""
+        DateIso = Util.TodayIso()
+        Status = "open"
+        Subject = ""
+        SourceId = 0
+        Lines = New ArrayList()
+    End Sub
+
+    ' --- arithmetic ---------------------------------------------------------------
+
+    Public Function Net() As Double
+        Dim total As Double = 0
+        Dim entry As Object
+        For Each entry In Lines
+            total = total + CType(entry, DocumentLine).Amount()
+        Next entry
+        Return total
+    End Function
+
+    Public Function Tax() As Double
+        Dim total As Double = 0
+        Dim entry As Object
+        For Each entry In Lines
+            Dim p As DocumentLine = CType(entry, DocumentLine)
+            total = total + p.Amount() * p.VatRate / 100
+        Next entry
+        Return total
+    End Function
+
+    Public Function Gross() As Double
+        Return Net() + Tax()
+    End Function
+
+    ' --- lines ----------------------------------------------------------------------
+
+    Public Sub AddLine(p As DocumentLine)
+        Lines.add(p)
+    End Sub
+
+    Public Sub RemoveLine(row As Integer)
+        If row >= 0 And row < Lines.size() Then
+            Lines.remove(row)
+        End If
+    End Sub
+
+    Public Function LineAt(row As Integer) As DocumentLine
+        Return CType(Lines.get(row), DocumentLine)
+    End Function
+
+    Public Function LineCount() As Integer
+        Return Lines.size()
+    End Function
+
+End Class
+
+
+' One line of a document.
+'
+' The name, the price and the tax rate are held here again rather than as a reference to the
+' article. A quotation written in March has to show March's price in December, however much the
+' article has gone up in the meantime.
+Public Class DocumentLine
+
+    Public Property ArticleId As Integer
+    Public Property Number As String
+    Public Property Name As String
+    Public Property Quantity As Double
+    Public Property Unit As String
+    Public Property UnitPrice As Double
+    Public Property VatRate As Double
+
+    Public Sub New()
+        ArticleId = 0
+        Number = ""
+        Name = ""
+        Quantity = 1
+        Unit = "Piece"
+        UnitPrice = 0
+        VatRate = 19
+    End Sub
+
+    Public Function Amount() As Double
+        Return Quantity * UnitPrice
+    End Function
+
+    ' An article becomes a line - the one place where the two ever touch.
+    Public Shared Function FromArticle(a As Article, quantity As Double) As DocumentLine
+        Dim p As DocumentLine = New DocumentLine()
+        p.ArticleId = a.Id
+        p.Number = a.Number
+        p.Name = a.Name
+        p.Unit = a.Unit
+        p.UnitPrice = a.Price
+        p.VatRate = a.Vat
+        p.Quantity = quantity
+        Return p
+    End Function
+
+End Class

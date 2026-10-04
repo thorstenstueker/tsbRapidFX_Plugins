@@ -1,0 +1,388 @@
+' One customer, to look at and to change.
+'
+' Deliberately the same shape as ArticleSheetForm — Fetch, Display, Collect, validate, save,
+' back. Twelve fields instead of eight, so they sit in three columns rather than four; that is
+' the whole difference.
+
+Imports tsb.mobile
+
+Public Class CustomerSheetForm
+    Implements Form
+
+    Private cust As Customer
+    Private wanted As Integer = 0
+
+    Public Sub New(id As Integer)
+        wanted = id
+    End Sub
+
+    Private Sub OnFormBuilt()
+        drpArea.setItems(Shell.Areas())
+        drpArea.setSelectedIndex(0)
+
+        cust = Fetch(wanted)
+        Display()
+    End Sub
+
+    Private Function Fetch(id As Integer) As Customer
+        If id = 0 Then
+            Dim fresh As Customer = New Customer()
+            fresh.Number = CustomerFile.NextNumber()
+            Return fresh
+        End If
+        Dim existing As Customer = CustomerFile.Load(id)
+        If existing Is Nothing Then
+            Return New Customer()
+        End If
+        Return existing
+    End Function
+
+    Private Sub Display()
+        If cust.Id = 0 Then
+            lblTitle.setText("New customer")
+        Else
+            lblTitle.setText("Customer " + cust.Number)
+        End If
+        txtNumber.setText(cust.Number)
+        txtName.setText(Util.Text(cust.Name))
+        txtContact.setText(Util.Text(cust.Contact))
+        txtStreet.setText(Util.Text(cust.Street))
+        txtPostCode.setText(Util.Text(cust.PostCode))
+        txtCity.setText(Util.Text(cust.City))
+        txtCountry.setText(Util.Text(cust.Country))
+        txtEMail.setText(Util.Text(cust.EMail))
+        txtPhone.setText(Util.Text(cust.Phone))
+        txtVatId.setText(Util.Text(cust.VatId))
+        txaNote.setText(Util.Text(cust.Note))
+        lblHint.setText("")
+    End Sub
+
+    Private Sub Collect()
+        cust.Number = Trim(txtNumber.getText())
+        cust.Name = Trim(txtName.getText())
+        cust.Contact = Trim(txtContact.getText())
+        cust.Street = Trim(txtStreet.getText())
+        cust.PostCode = Trim(txtPostCode.getText())
+        cust.City = Trim(txtCity.getText())
+        cust.Country = Trim(txtCountry.getText())
+        cust.EMail = Trim(txtEMail.getText())
+        cust.Phone = Trim(txtPhone.getText())
+        cust.VatId = Trim(txtVatId.getText())
+        cust.Note = txaNote.getText()
+    End Sub
+
+    ' --- what the buttons do ---------------------------------------------------------
+
+    Private Sub OnSave(source As Button)
+        Collect()
+        If cust.Number = "" Then
+            lblHint.setText("A customer number is required.")
+            Exit Sub
+        End If
+        If cust.Name = "" Then
+            lblHint.setText("A name is required.")
+            Exit Sub
+        End If
+
+        CustomerFile.Save(cust)
+        Shell.ShowCustomers()
+        Shell.Say("Customer " + cust.Number + " saved.")
+    End Sub
+
+    Private Sub OnCancel(source As Button)
+        Shell.ShowCustomers()
+    End Sub
+
+    ' A customer who appears on a document is not deleted. CustomerFile says so in a sentence.
+    Private Sub OnDelete(source As Button)
+        If cust.Id = 0 Then
+            Shell.ShowCustomers()
+            Exit Sub
+        End If
+        Dim refused As String = CustomerFile.Delete(cust.Id)
+        If refused <> "" Then
+            lblHint.setText(refused)
+            Exit Sub
+        End If
+        Shell.ShowCustomers()
+        Shell.Say("Customer " + cust.Number + " deleted.")
+    End Sub
+
+    ' --- the navigation ----------------------------------------------------------------
+
+    ' Ignores its own number — see ArticleListForm.OnAreaChosen for why this is not a flag.
+    Private Sub OnAreaChosen(source As Widget, index As Integer, text As String)
+        If index = 0 Then
+            Exit Sub
+        End If
+        Shell.GoTo(index)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=CustomerSheetForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Dropdown drpArea L=24 T=16 W=260 H=48
+    Private drpArea As Dropdown = New Dropdown()
+
+    ' @tsbmob Label lblTitle L=24 T=16@drpArea.BOTTOM W=500 H=36
+    Private lblTitle As Label = New Label()
+
+    ' @tsbmob Label lblNumber L=24 T=20@lblTitle.BOTTOM W=140 H=28
+    Private lblNumber As Label = New Label()
+
+    ' @tsbmob TextField txtNumber L=24 T=4@lblNumber.BOTTOM W=220 H=48
+    Private txtNumber As TextField = New TextField()
+
+    ' @tsbmob Label lblName L=24@txtNumber.RIGHT T=20@lblTitle.BOTTOM W=140 H=28
+    Private lblName As Label = New Label()
+
+    ' @tsbmob TextField txtName L=24@txtNumber.RIGHT T=4@lblNumber.BOTTOM W=460 H=48
+    Private txtName As TextField = New TextField()
+
+    ' @tsbmob Label lblContact L=24@txtName.RIGHT T=20@lblTitle.BOTTOM W=140 H=28
+    Private lblContact As Label = New Label()
+
+    ' @tsbmob TextField txtContact L=24@txtName.RIGHT T=4@lblNumber.BOTTOM R=24 W=300 H=48
+    Private txtContact As TextField = New TextField()
+
+    ' @tsbmob Label lblStreet L=24 T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblStreet As Label = New Label()
+
+    ' @tsbmob TextField txtStreet L=24 T=4@lblStreet.BOTTOM W=460 H=48
+    Private txtStreet As TextField = New TextField()
+
+    ' @tsbmob Label lblPostCode L=24@txtStreet.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblPostCode As Label = New Label()
+
+    ' @tsbmob TextField txtPostCode L=24@txtStreet.RIGHT T=4@lblStreet.BOTTOM W=180 H=48
+    Private txtPostCode As TextField = New TextField()
+
+    ' @tsbmob Label lblCity L=24@txtPostCode.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblCity As Label = New Label()
+
+    ' @tsbmob TextField txtCity L=24@txtPostCode.RIGHT T=4@lblStreet.BOTTOM W=300 H=48
+    Private txtCity As TextField = New TextField()
+
+    ' @tsbmob Label lblCountry L=24@txtCity.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblCountry As Label = New Label()
+
+    ' @tsbmob TextField txtCountry L=24@txtCity.RIGHT T=4@lblStreet.BOTTOM W=150 H=48
+    Private txtCountry As TextField = New TextField()
+
+    ' @tsbmob Label lblEMail L=24 T=16@txtStreet.BOTTOM W=140 H=28
+    Private lblEMail As Label = New Label()
+
+    ' @tsbmob TextField txtEMail L=24 T=4@lblEMail.BOTTOM W=460 H=48
+    Private txtEMail As TextField = New TextField()
+
+    ' @tsbmob Label lblPhone L=24@txtEMail.RIGHT T=16@txtStreet.BOTTOM W=140 H=28
+    Private lblPhone As Label = New Label()
+
+    ' @tsbmob TextField txtPhone L=24@txtEMail.RIGHT T=4@lblEMail.BOTTOM W=300 H=48
+    Private txtPhone As TextField = New TextField()
+
+    ' @tsbmob Label lblVatId L=24@txtPhone.RIGHT T=16@txtStreet.BOTTOM W=140 H=28
+    Private lblVatId As Label = New Label()
+
+    ' @tsbmob TextField txtVatId L=24@txtPhone.RIGHT T=4@lblEMail.BOTTOM R=24 W=260 H=48
+    Private txtVatId As TextField = New TextField()
+
+    ' @tsbmob Label lblNote L=24 T=16@txtEMail.BOTTOM W=200 H=28
+    Private lblNote As Label = New Label()
+
+    ' @tsbmob TextArea txaNote L=24 T=4@lblNote.BOTTOM R=24 W=1064 H=120
+    Private txaNote As TextArea = New TextArea()
+
+    ' @tsbmob Button btnSave L=24 T=24@txaNote.BOTTOM W=180 H=52
+    Private btnSave As Button = New Button()
+
+    ' @tsbmob Button btnCancel L=16@btnSave.RIGHT T=24@txaNote.BOTTOM W=180 H=52
+    Private btnCancel As Button = New Button()
+
+    ' @tsbmob Button btnDelete L=16@btnCancel.RIGHT T=24@txaNote.BOTTOM W=180 H=52
+    Private btnDelete As Button = New Button()
+
+    ' @tsbmob Label lblHint L=24 T=16@btnSave.BOTTOM R=24 W=1064 H=28
+    Private lblHint As Label = New Label()
+
+    Public Function build() As Screen
+        schirm.setTitle("Customer")
+
+        drpArea.setName("drpArea")
+        drpArea.onSelect(AddressOf OnAreaChosen)
+        drpArea.setSize(260, 48)
+        schirm.add(drpArea)
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setText("Customer")
+        lblTitle.setTextSize(26)
+        lblTitle.setBold(True)
+        lblTitle.setSize(500, 36)
+        schirm.add(lblTitle)
+
+        Beschriften(lblNumber, "Number")
+        Feld(txtNumber, 220)
+        Beschriften(lblName, "Name")
+        Feld(txtName, 460)
+        Beschriften(lblContact, "Contact")
+        Feld(txtContact, 300)
+
+        Beschriften(lblStreet, "Street")
+        Feld(txtStreet, 460)
+        Beschriften(lblPostCode, "Post code")
+        Feld(txtPostCode, 180)
+        Beschriften(lblCity, "Town")
+        Feld(txtCity, 300)
+        Beschriften(lblCountry, "Country")
+        Feld(txtCountry, 150)
+
+        Beschriften(lblEMail, "E-mail")
+        Feld(txtEMail, 460)
+        Beschriften(lblPhone, "Phone")
+        Feld(txtPhone, 300)
+        Beschriften(lblVatId, "VAT id")
+        Feld(txtVatId, 260)
+
+        Beschriften(lblNote, "Note")
+        txaNote.setName("txaNote")
+        txaNote.setHeight(120)
+        schirm.add(txaNote)
+
+        MakeButton(btnSave, "Save", AddressOf OnSave)
+        MakeButton(btnCancel, "Cancel", AddressOf OnCancel)
+        MakeButton(btnDelete, "Delete", AddressOf OnDelete)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setHeight(28)
+        schirm.add(lblHint)
+
+        schirm.anchor(drpArea, Edge.LEFT, 24)
+        schirm.anchor(drpArea, Edge.TOP, 16)
+        schirm.anchor(lblTitle, Edge.LEFT, 24)
+        schirm.anchor(lblTitle, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+
+        ' Row 1
+        Zeile1(lblNumber, txtNumber, Nothing)
+        Zeile1(lblName, txtName, txtNumber)
+        Zeile1(lblContact, txtContact, txtName)
+        schirm.anchor(txtContact, Edge.RIGHT, 24)
+
+        ' Row 2
+        Zeile2(lblStreet, txtStreet, Nothing)
+        Zeile2(lblPostCode, txtPostCode, txtStreet)
+        Zeile2(lblCity, txtCity, txtPostCode)
+        Zeile2(lblCountry, txtCountry, txtCity)
+
+        ' Row 3
+        Zeile3(lblEMail, txtEMail, Nothing)
+        Zeile3(lblPhone, txtPhone, txtEMail)
+        Zeile3(lblVatId, txtVatId, txtPhone)
+        schirm.anchor(txtVatId, Edge.RIGHT, 24)
+
+        schirm.anchor(lblNote, Edge.LEFT, 24)
+        schirm.anchor(lblNote, Edge.TOP, 16, txtEMail, Edge.BOTTOM)
+        schirm.anchor(txaNote, Edge.LEFT, 24)
+        schirm.anchor(txaNote, Edge.TOP, 4, lblNote, Edge.BOTTOM)
+        schirm.anchor(txaNote, Edge.RIGHT, 24)
+
+        schirm.anchor(btnSave, Edge.LEFT, 24)
+        schirm.anchor(btnSave, Edge.TOP, 24, txaNote, Edge.BOTTOM)
+        schirm.anchor(btnCancel, Edge.LEFT, 16, btnSave, Edge.RIGHT)
+        schirm.anchor(btnCancel, Edge.TOP, 24, txaNote, Edge.BOTTOM)
+        schirm.anchor(btnDelete, Edge.LEFT, 16, btnCancel, Edge.RIGHT)
+        schirm.anchor(btnDelete, Edge.TOP, 24, txaNote, Edge.BOTTOM)
+
+        schirm.anchor(lblHint, Edge.LEFT, 24)
+        schirm.anchor(lblHint, Edge.TOP, 16, btnSave, Edge.BOTTOM)
+        schirm.anchor(lblHint, Edge.RIGHT, 24)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+
+    ' --- helpers -----------------------------------------------------------------------
+    '
+    ' Twenty-two widgets in three rows of the same shape. Written out, this method would be a
+    ' hundred lines of anchor calls that differ in two words each — and the two words are
+    ' exactly where a mistake hides.
+
+    Private Sub Beschriften(l As Label, text As String)
+        l.setText(text)
+        l.setSize(140, 28)
+        schirm.add(l)
+    End Sub
+
+    Private Sub Feld(t As TextField, width As Integer)
+        t.setSize(width, 48)
+        schirm.add(t)
+    End Sub
+
+    Private Sub MakeButton(b As Button, text As String, handler As ClickHandler)
+        b.setText(text)
+        b.setSize(180, 52)
+        b.onClick(handler)
+        schirm.add(b)
+    End Sub
+
+    ' One label-and-field pair, placed after `left` or at the margin.
+    Private Sub Paar(l As Label, t As TextField, left As TextField, _
+                     labelTop As Label, fieldTop As Label)
+        If left Is Nothing Then
+            schirm.anchor(l, Edge.LEFT, 24)
+            schirm.anchor(t, Edge.LEFT, 24)
+        Else
+            schirm.anchor(l, Edge.LEFT, 24, left, Edge.RIGHT)
+            schirm.anchor(t, Edge.LEFT, 24, left, Edge.RIGHT)
+        End If
+        schirm.anchor(l, Edge.TOP, 20, labelTop, Edge.BOTTOM)
+        schirm.anchor(t, Edge.TOP, 4, fieldTop, Edge.BOTTOM)
+    End Sub
+
+    Private Sub Zeile1(l As Label, t As TextField, left As TextField)
+        Paar(l, t, left, lblTitle, lblNumber)
+    End Sub
+
+    Private Sub Zeile2(l As Label, t As TextField, left As TextField)
+        If left Is Nothing Then
+            schirm.anchor(l, Edge.LEFT, 24)
+            schirm.anchor(t, Edge.LEFT, 24)
+        Else
+            schirm.anchor(l, Edge.LEFT, 24, left, Edge.RIGHT)
+            schirm.anchor(t, Edge.LEFT, 24, left, Edge.RIGHT)
+        End If
+        schirm.anchor(l, Edge.TOP, 16, txtNumber, Edge.BOTTOM)
+        schirm.anchor(t, Edge.TOP, 4, lblStreet, Edge.BOTTOM)
+    End Sub
+
+    Private Sub Zeile3(l As Label, t As TextField, left As TextField)
+        If left Is Nothing Then
+            schirm.anchor(l, Edge.LEFT, 24)
+            schirm.anchor(t, Edge.LEFT, 24)
+        Else
+            schirm.anchor(l, Edge.LEFT, 24, left, Edge.RIGHT)
+            schirm.anchor(t, Edge.LEFT, 24, left, Edge.RIGHT)
+        End If
+        schirm.anchor(l, Edge.TOP, 16, txtStreet, Edge.BOTTOM)
+        schirm.anchor(t, Edge.TOP, 4, lblEMail, Edge.BOTTOM)
+    End Sub
+
+End Class

@@ -1,0 +1,535 @@
+' The shell: a menu bar, a header, the navigation, and below it the area the actual screen
+' sits in.
+'
+' This is where the web version and the desktop version differ most. There, changing screen was
+' a string written into the session and a request to build the whole display again. Here it is
+' an ordinary method call with an ordinary argument - ShowCustomerSheet(17) - and only the one
+' panel inside the window is swapped.
+'
+' Everything one person is doing lives in fields of this object. There is one of them, because
+' there is one window and one person. That is what a session was standing in for.
+Imports java.awt
+Imports java.awt.event
+Imports javax.swing
+
+Public Class MainWindow
+
+    ' The window this program owns, and who is sitting in front of it.
+    Private frame As JFrame
+    Private who As User
+
+    ' Which of the three document kinds the document screens are currently showing.
+    Private kind As String = Document.QUOTATION
+
+    ' The three list screens are built once and then kept.
+    '
+    ' This is the plainest advantage a desktop program has. In the browser the whole display was
+    ' thrown away and built again on every change of screen, so a list could not remember what
+    ' had been typed into its search box - that had to be stored in the session and put back
+    ' afterwards. Here a list that is put aside is simply still there, search text, scroll
+    ' position, selected row and all.
+    Private customerList As CustomerListForm
+    Private articleList As ArticleListForm
+    Private documentList As DocumentListForm
+
+    ' Writes the window size down when the window is closed. Registered while this screen is up
+    ' and taken off again on signing out, so that the small sign-in window is never mistaken for
+    ' the size the user wanted.
+    Private saver As WindowSaver
+
+    Public Sub New(f As JFrame, user As User)
+        InitDesignerComponents()
+        frame = f
+        who = user
+
+        lblSignedIn.Text = "Signed in: " + who.DisplayName + "  (" + who.Role + ")"
+        lblMessage.Text = ""
+
+        ' The content area gets a BorderLayout here instead of the anchors from the designer. It
+        ' holds exactly one child - the screen currently chosen - and that child should fill it.
+        ' In the designer it stays an empty panel with four anchors, so that one can see where
+        ' it sits and how it grows.
+        pnlContent.setLayout(New BorderLayout())
+    End Sub
+
+    ' --- opening, signing out, leaving ---------------------------------------------------
+
+    Public Sub Open()
+        BuildMenu()
+        ShowCustomers()
+
+        ' The designer's own method: title, content pane, size, centre, visible.
+        ShowIn(frame)
+
+        ' And only then the size this user last left the window at. It has to come after
+        ' ShowIn, which sets a size of its own.
+        Settings.RestoreWindow(frame)
+
+        saver = New WindowSaver()
+        frame.addWindowListener(saver)
+    End Sub
+
+    Public Sub SignOut()
+        Settings.SaveWindow(frame)
+        frame.removeWindowListener(saver)
+        frame.setJMenuBar(Nothing)
+        New SignInForm(frame).Open()
+    End Sub
+
+    Public Sub Quit()
+        Settings.SaveWindow(frame)
+        java.lang.System.exit(0)
+    End Sub
+
+    ' --- what the screens inside are allowed to ask for ----------------------------------
+
+    ' The window, for anything that needs a parent: a confirmation, a message.
+    Public Function Owner() As JFrame
+        Return frame
+    End Function
+
+    Public Function Kind() As String
+        Return kind
+    End Function
+
+    ' One line of feedback above the content. Place() clears it whenever a screen changes, so
+    ' whoever wants a message says it after asking for the new screen, not before.
+    Public Sub Say(text As String)
+        lblMessage.Text = text
+    End Sub
+
+    ' --- the screens ---------------------------------------------------------------------
+
+    Public Sub ShowCustomers()
+        If customerList Is Nothing Then
+            customerList = New CustomerListForm(Me)
+        Else
+            customerList.Refresh()
+        End If
+        Place(customerList.GetRootPane(), "customers")
+    End Sub
+
+    ' Zero means "a new customer". The sheet asks the customer file for the next free number.
+    Public Sub ShowCustomerSheet(id As Integer)
+        Place(New CustomerSheetForm(Me, id).GetRootPane(), "customers")
+    End Sub
+
+    Public Sub ShowArticles()
+        If articleList Is Nothing Then
+            articleList = New ArticleListForm(Me)
+        Else
+            articleList.Refresh()
+        End If
+        Place(articleList.GetRootPane(), "articles")
+    End Sub
+
+    Public Sub ShowArticleSheet(id As Integer)
+        Place(New ArticleSheetForm(Me, id).GetRootPane(), "articles")
+    End Sub
+
+    ' A change of kind - quotations to invoices, say. The list starts afresh, search box and all,
+    ' because it is now showing something else.
+    Public Sub ShowDocuments(k As String)
+        kind = k
+        If documentList Is Nothing Then
+            documentList = New DocumentListForm(Me)
+        End If
+        documentList.Display(kind)
+        Place(documentList.GetRootPane(), "documents")
+    End Sub
+
+    ' Coming back from a document sheet. The list keeps what was typed into it - unless the kind
+    ' has changed underneath, which is exactly what has happened when a quotation was just
+    ' carried over into an invoice.
+    Public Sub BackToDocuments()
+        If documentList Is Nothing Then
+            documentList = New DocumentListForm(Me)
+            documentList.Display(kind)
+        ElseIf documentList.Kind() <> kind Then
+            documentList.Display(kind)
+        Else
+            documentList.Refresh()
+        End If
+        Place(documentList.GetRootPane(), "documents")
+    End Sub
+
+    ' A document sheet is always made fresh, and it is handed the document it is to edit. On the
+    ' web that document had to live in the session, because adding a line rebuilt the screen and
+    ' a field of the form would have been gone. Here the form stays, so a field is enough.
+    Public Sub ShowDocumentSheet(doc As Document)
+        kind = doc.Kind
+        Place(New DocumentSheetForm(Me, doc).GetRootPane(), "documents")
+    End Sub
+
+    ' Swap the one child of the content area.
+    '
+    ' All three lines are needed. removeAll takes the old screen out, revalidate tells the
+    ' layout to work the new one out, and without repaint the old pixels can be left behind.
+    Private Sub Place(panel As JPanel, area As String)
+        lblMessage.Text = ""
+        pnlContent.removeAll()
+        pnlContent.add(panel, BorderLayout.CENTER)
+        pnlContent.revalidate()
+        pnlContent.repaint()
+        Highlight(area)
+    End Sub
+
+    ' The button belonging to the visible screen goes bold. No border and no colour: both would
+    ' have to match the theme, and the theme is the user's to choose.
+    Private Sub Highlight(area As String)
+        Dim onDoc As Boolean = (area = "documents")
+        Bold(btnCustomers, area = "customers")
+        Bold(btnArticles, area = "articles")
+        Bold(btnQuotations, onDoc AndAlso (kind = Document.QUOTATION))
+        Bold(btnDeliveryNotes, onDoc AndAlso (kind = Document.DELIVERYNOTE))
+        Bold(btnInvoices, onDoc AndAlso (kind = Document.INVOICE))
+    End Sub
+
+    Private Sub Bold(button As JButton, active As Boolean)
+        Dim style As Integer = Font.PLAIN
+        If active Then
+            style = Font.BOLD
+        End If
+        button.setFont(button.getFont().deriveFont(style))
+    End Sub
+
+    ' --- the navigation buttons -----------------------------------------------------------
+
+    Private Sub OnCustomers(e As ActionEvent)
+        ShowCustomers()
+    End Sub
+
+    Private Sub OnArticles(e As ActionEvent)
+        ShowArticles()
+    End Sub
+
+    Private Sub OnQuotations(e As ActionEvent)
+        ShowDocuments(Document.QUOTATION)
+    End Sub
+
+    Private Sub OnDeliveryNotes(e As ActionEvent)
+        ShowDocuments(Document.DELIVERYNOTE)
+    End Sub
+
+    Private Sub OnInvoices(e As ActionEvent)
+        ShowDocuments(Document.INVOICE)
+    End Sub
+
+    Private Sub OnSignOut(e As ActionEvent)
+        SignOut()
+    End Sub
+
+    ' --- the menu bar -----------------------------------------------------------------------
+    '
+    ' A menu bar is the one thing a window has that a web page does not, and it is where the
+    ' commands that are not screens belong: signing out, leaving, choosing the look.
+
+    Private Sub BuildMenu()
+        Dim bar As JMenuBar = New JMenuBar()
+        bar.add(FileMenu())
+        bar.add(GoMenu())
+        bar.add(ViewMenu())
+        bar.add(HelpMenu())
+        frame.setJMenuBar(bar)
+    End Sub
+
+    Private Function FileMenu() As JMenu
+        Dim menu As JMenu = New JMenu("File")
+        menu.setMnemonic(KeyEvent.VK_F)
+
+        Dim out As JMenuItem = New JMenuItem("Sign out")
+        out.addActionListener(Sub(e)
+            SignOut()
+        End Sub)
+        menu.add(out)
+
+        menu.addSeparator()
+
+        Dim leave As JMenuItem = Item("Exit", KeyEvent.VK_Q)
+        leave.addActionListener(Sub(e)
+            Quit()
+        End Sub)
+        menu.add(leave)
+        Return menu
+    End Function
+
+    Private Function GoMenu() As JMenu
+        Dim menu As JMenu = New JMenu("Go")
+        menu.setMnemonic(KeyEvent.VK_G)
+
+        Dim a As JMenuItem = Item("Customers", KeyEvent.VK_1)
+        a.addActionListener(Sub(e)
+            ShowCustomers()
+        End Sub)
+        menu.add(a)
+
+        Dim b As JMenuItem = Item("Articles", KeyEvent.VK_2)
+        b.addActionListener(Sub(e)
+            ShowArticles()
+        End Sub)
+        menu.add(b)
+
+        menu.addSeparator()
+
+        Dim c As JMenuItem = Item("Quotations", KeyEvent.VK_3)
+        c.addActionListener(Sub(e)
+            ShowDocuments(Document.QUOTATION)
+        End Sub)
+        menu.add(c)
+
+        Dim d As JMenuItem = Item("Delivery notes", KeyEvent.VK_4)
+        d.addActionListener(Sub(e)
+            ShowDocuments(Document.DELIVERYNOTE)
+        End Sub)
+        menu.add(d)
+
+        Dim f As JMenuItem = Item("Invoices", KeyEvent.VK_5)
+        f.addActionListener(Sub(e)
+            ShowDocuments(Document.INVOICE)
+        End Sub)
+        menu.add(f)
+        Return menu
+    End Function
+
+    ' The four themes FlatLaf ships with. Radio buttons rather than plain entries, so that the
+    ' menu also says which one is on.
+    Private Function ViewMenu() As JMenu
+        Dim menu As JMenu = New JMenu("View")
+        menu.setMnemonic(KeyEvent.VK_V)
+
+        Dim group As ButtonGroup = New ButtonGroup()
+        Dim current As String = Settings.Theme()
+
+        Dim light As JRadioButtonMenuItem = New JRadioButtonMenuItem(Look.LIGHT)
+        light.setSelected(current = Look.LIGHT)
+        light.addActionListener(Sub(e)
+            UseTheme(Look.LIGHT)
+        End Sub)
+        group.add(light)
+        menu.add(light)
+
+        Dim dark As JRadioButtonMenuItem = New JRadioButtonMenuItem(Look.DARK)
+        dark.setSelected(current = Look.DARK)
+        dark.addActionListener(Sub(e)
+            UseTheme(Look.DARK)
+        End Sub)
+        group.add(dark)
+        menu.add(dark)
+
+        Dim ij As JRadioButtonMenuItem = New JRadioButtonMenuItem(Look.INTELLIJ)
+        ij.setSelected(current = Look.INTELLIJ)
+        ij.addActionListener(Sub(e)
+            UseTheme(Look.INTELLIJ)
+        End Sub)
+        group.add(ij)
+        menu.add(ij)
+
+        Dim darcula As JRadioButtonMenuItem = New JRadioButtonMenuItem(Look.DARCULA)
+        darcula.setSelected(current = Look.DARCULA)
+        darcula.addActionListener(Sub(e)
+            UseTheme(Look.DARCULA)
+        End Sub)
+        group.add(darcula)
+        menu.add(darcula)
+        Return menu
+    End Function
+
+    Private Function HelpMenu() As JMenu
+        Dim menu As JMenu = New JMenu("Help")
+        menu.setMnemonic(KeyEvent.VK_H)
+
+        Dim about As JMenuItem = New JMenuItem("About RapidX ERP")
+        about.addActionListener(Sub(e)
+            JOptionPane.showMessageDialog(frame, _
+                    "RapidX ERP Desktop" + rfxNewLine _
+                    + "Written in RapidFX, drawn in tsbDesignerSWX." + rfxNewLine + rfxNewLine _
+                    + "Signed in as " + who.DisplayName + rfxNewLine _
+                    + "Database " + Database.FilePath(), _
+                    "About", JOptionPane.INFORMATION_MESSAGE)
+        End Sub)
+        menu.add(about)
+        Return menu
+    End Function
+
+    ' Remember it and switch to it. Both, in that order: the choice must survive the next start.
+    Private Sub UseTheme(name As String)
+        Settings.SetTheme(name)
+        Look.Switch(name)
+    End Sub
+
+    ' A menu entry with a keyboard shortcut. getMenuShortcutKeyMaskEx asks the system which key
+    ' that is - Ctrl on Windows and Linux, Cmd on a Mac - so people get the shortcut they
+    ' already know rather than the one the programmer happens to use.
+    Private Function Item(text As String, key As Integer) As JMenuItem
+        Dim entry As JMenuItem = New JMenuItem(text)
+        entry.setAccelerator(KeyStroke.getKeyStroke(key, _
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()))
+        Return entry
+    End Function
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                              TSB RAPIDFX LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=MainWindow root=AnchorPanel ziel=DESKTOP platform=CUSTOM w=1180 h=760 showIn=true theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblHeader parent=rootPane L=24 T=16 W=360 H=30
+    Private lblHeader As JLabel = New JLabel()
+
+    ' @tsbswx Label lblSignedIn parent=rootPane T=20 R=148 W=400 H=24
+    Private lblSignedIn As JLabel = New JLabel()
+
+    ' @tsbswx Button btnSignOut parent=rootPane T=14 R=24 W=110 H=32
+    Private btnSignOut As JButton = New JButton()
+
+    ' @tsbswx Button btnCustomers parent=rootPane L=24 T=62 W=170 H=34
+    Private btnCustomers As JButton = New JButton()
+
+    ' @tsbswx Button btnArticles parent=rootPane L=204 T=62 W=170 H=34
+    Private btnArticles As JButton = New JButton()
+
+    ' @tsbswx Button btnQuotations parent=rootPane L=384 T=62 W=170 H=34
+    Private btnQuotations As JButton = New JButton()
+
+    ' @tsbswx Button btnDeliveryNotes parent=rootPane L=564 T=62 W=170 H=34
+    Private btnDeliveryNotes As JButton = New JButton()
+
+    ' @tsbswx Button btnInvoices parent=rootPane L=744 T=62 W=170 H=34
+    Private btnInvoices As JButton = New JButton()
+
+    ' @tsbswx Separator sepHeader parent=rootPane L=24 T=110 R=24 W=1132 H=8
+    Private sepHeader As JSeparator = New JSeparator()
+
+    ' @tsbswx Label lblMessage parent=rootPane L=24 T=120 R=24 W=1132 H=22
+    Private lblMessage As JLabel = New JLabel()
+
+    ' @tsbswx AnchorPanel pnlContent parent=rootPane L=24 T=146 R=24 B=24 W=1132 H=590
+    Private pnlContent As JPanel = New JPanel()
+    Private pnlContentLayout As SpringLayout = New SpringLayout()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1180, 760))
+
+        lblHeader.setName("lblHeader")
+        lblHeader.setFont(New Font("SansSerif", Font.BOLD, 20))
+        lblHeader.setText("RapidX ERP")
+        lblHeader.setPreferredSize(New Dimension(360, 30))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHeader, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHeader, 16, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblHeader)
+
+        lblSignedIn.setName("lblSignedIn")
+        lblSignedIn.setText("Signed in")
+        lblSignedIn.setHorizontalAlignment(SwingConstants.RIGHT)
+        lblSignedIn.setPreferredSize(New Dimension(400, 24))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblSignedIn, 20, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblSignedIn, -148, SpringLayout.EAST, rootPane)
+        rootPane.add(lblSignedIn)
+
+        btnSignOut.setName("btnSignOut")
+        btnSignOut.setText("Sign out")
+        btnSignOut.addActionListener(AddressOf OnSignOut)
+        btnSignOut.setPreferredSize(New Dimension(110, 32))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSignOut, 14, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnSignOut, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(btnSignOut)
+
+        btnCustomers.setName("btnCustomers")
+        btnCustomers.setText("Customers")
+        btnCustomers.addActionListener(AddressOf OnCustomers)
+        btnCustomers.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnCustomers, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnCustomers, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnCustomers)
+
+        btnArticles.setName("btnArticles")
+        btnArticles.setText("Articles")
+        btnArticles.addActionListener(AddressOf OnArticles)
+        btnArticles.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnArticles, 204, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnArticles, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnArticles)
+
+        btnQuotations.setName("btnQuotations")
+        btnQuotations.setText("Quotations")
+        btnQuotations.addActionListener(AddressOf OnQuotations)
+        btnQuotations.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnQuotations, 384, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnQuotations, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnQuotations)
+
+        btnDeliveryNotes.setName("btnDeliveryNotes")
+        btnDeliveryNotes.setText("Delivery notes")
+        btnDeliveryNotes.addActionListener(AddressOf OnDeliveryNotes)
+        btnDeliveryNotes.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnDeliveryNotes, 564, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnDeliveryNotes, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnDeliveryNotes)
+
+        btnInvoices.setName("btnInvoices")
+        btnInvoices.setText("Invoices")
+        btnInvoices.addActionListener(AddressOf OnInvoices)
+        btnInvoices.setPreferredSize(New Dimension(170, 34))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnInvoices, 744, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnInvoices, 62, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnInvoices)
+
+        sepHeader.setName("sepHeader")
+        sepHeader.setPreferredSize(New Dimension(1132, 8))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, sepHeader, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, sepHeader, 110, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, sepHeader, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(sepHeader)
+
+        lblMessage.setName("lblMessage")
+        lblMessage.setText("")
+        lblMessage.setPreferredSize(New Dimension(1132, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblMessage, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblMessage, 120, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblMessage, -24, SpringLayout.EAST, rootPane)
+        rootPane.add(lblMessage)
+
+        pnlContent.setName("pnlContent")
+        pnlContent.setLayout(pnlContentLayout)
+        rootPaneLayout.putConstraint(SpringLayout.WEST, pnlContent, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, pnlContent, 146, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, pnlContent, -24, SpringLayout.EAST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.SOUTH, pnlContent, -24, SpringLayout.SOUTH, rootPane)
+        rootPane.add(pnlContent)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+
+    ' Shows this form in the given frame. No statics: this instance, this window.
+    Public Sub ShowIn(frame As JFrame)
+        frame.setTitle("RapidX ERP")
+        frame.setContentPane(rootPane)
+        frame.setSize(1180, 760)
+        frame.setLocationRelativeTo(Nothing)
+        frame.setVisible(True)
+    End Sub
+End Class

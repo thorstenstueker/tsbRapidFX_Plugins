@@ -1,0 +1,69 @@
+' A customer, the way the screen and the database both see one.
+'
+' An ordinary class with properties and nothing else. It knows nothing about SQL and nothing
+' about Swing - the first lives in CustomerFile, the second in the forms. That is what makes a
+' customer something you can hand from one form to the next and get back unchanged.
+
+Public Class Customer
+
+    Public Property Id As Integer
+    Public Property Number As String
+    Public Property Name As String
+    Public Property Contact As String
+    Public Property Street As String
+    Public Property PostCode As String
+    Public Property City As String
+    Public Property Country As String
+    Public Property EMail As String
+    Public Property Phone As String
+    Public Property VatId As String
+    Public Property Note As String
+
+    Public Sub New()
+        Id = 0
+        Number = ""
+        Name = ""
+        Contact = ""
+        Street = ""
+        PostCode = ""
+        City = ""
+        Country = "Deutschland"
+        EMail = ""
+        Phone = ""
+        VatId = ""
+        Note = ""
+    End Sub
+
+    ' What a combo box shows: "K-1003  Bauzentrum Sued KG".
+    '
+    ' Not decoration. It is the reason the document form may hold customers in its combo box
+    ' rather than strings: a JComboBox displays toString, so what comes back out of it is a
+    ' customer and not a line of text somebody has to translate back into one.
+    Public Overrides Function toString() As String
+        If Number = "" Then
+            Return Name
+        End If
+        Return Number + "  " + Name
+    End Function
+
+    ' "12345 Musterstadt" - what a list shows in its town column.
+    Public Function CityLine() As String
+        Return Trim(PostCode + " " + City)
+    End Function
+
+    ' The address as it appears on a document.
+    Public Function AddressBlock() As String
+        Dim text As String = Name
+        If Contact <> "" Then
+            text = text + rfxNewLine + Contact
+        End If
+        If Street <> "" Then
+            text = text + rfxNewLine + Street
+        End If
+        If CityLine() <> "" Then
+            text = text + rfxNewLine + CityLine()
+        End If
+        Return text
+    End Function
+
+End Class

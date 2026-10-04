@@ -1,0 +1,163 @@
+' RapidX ERP - a small business application, served to a browser.
+'
+' Run it: right-click this file > Run, then open http://localhost:8099/.
+' Sign in with  admin / secret  or  anna / secret.
+'
+' A web project is a Swing project. There is no HTML page, no template language and no router:
+' the server paints the same forms that would sit in a JFrame on a desktop and sends the
+' drawing. That is why all eight screens of this application are drawn in tsbDesignerSWX -
+' right-click a form > "Open in Designer".
+Imports java.awt
+Imports javax.swing
+Imports java.util
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+
+Module Main
+
+' =============================================================================
+'                               SESSION STATICS
+'
+'   Variables reachable from everywhere that nevertheless belong to one user.
+'   Every session has its own value; nobody can read anybody else's. They are
+'   declared here and nowhere else - the compiler insists on it, and it is the
+'   only place where all of them are on one screen.
+'
+'   Two sorts sit here: where the user is (the screen, the search texts, the
+'   selected row) and what the user is working on. Draft is the case that
+'   matters - a whole object with its lines, which stays put across several
+'   rebuilds without anybody having to hand it from form to form.
+'
+'   No rule of asterisks here, and that is deliberate: a line of seventy-eight
+'   of them is the mark by which tsbDesignerSWX recognises a designer file. A
+'   heading that looked like a banner would turn Main.rfx into a form - and the
+'   first save in the designer would delete it.
+' =============================================================================
+
+    ' Which screen is showing: customers, customersheet, articles, articlesheet,
+    ' documents, documentsheet.
+    SessionStatic Screen As String
+
+    ' Which kind of document the document screens show: Quotation, Delivery note,
+    ' Invoice.
+    SessionStatic DocumentKind As String
+
+    ' What is being worked on. Zero means "a new one".
+    SessionStatic CustomerId As Integer
+    SessionStatic ArticleId As Integer
+    SessionStatic DocumentId As Integer
+
+    ' The document being edited, lines and all. It lives here rather than in the
+    ' database until somebody saves it - which is how it survives the adding of a
+    ' line, since that rebuilds the screen every time.
+    SessionStatic Draft As Document
+
+    ' What was last typed. Somebody coming back from a customer into the list
+    ' wants to find their search still there.
+    SessionStatic CustomerSearch As String
+    SessionStatic ArticleSearch As String
+    SessionStatic DocumentSearch As String
+
+    ' The row in the list the selection bar is on.
+    SessionStatic CustomerRow As Integer
+    SessionStatic ArticleRow As Integer
+    SessionStatic DocumentRow As Integer
+
+    ' The line above the content: "Customer K-1003 saved."
+    SessionStatic Message As String
+
+
+    Sub Main()
+        ' The database first, then the server. The other way round, the first user
+        ' would be signing in against a file that does not exist yet.
+        Database.Start()
+
+        Dim config As tsbWebConfig = New tsbWebConfig()
+        config.Port = 8099
+        config.Title = "RapidX ERP"
+
+        ' Not decoration: the server paints every component with this look and feel
+        ' and sends the drawing, so this line is what the browser shows.
+        config.Theme = "FlatLightLaf"
+        config.IdleMinutes = 30
+
+        ' Signing in is checked against the table users. The first column of the
+        ' query is the display name, the second the hash of the password.
+        '
+        ' The lambda gets its type from this line rather than from the argument list -
+        ' which is why it stands on its own instead of inside the call.
+        Dim source As com.tsbweb.session.tsbWebJdbcAuth.ConnectionSource = Function() Database.Connect()
+        Dim auth As tsbWebJdbcAuth = New tsbWebJdbcAuth(source, _
+                "SELECT displayname, password FROM users WHERE login = ?", _
+                "SELECT role FROM userrole WHERE login = ?")
+
+        Print "RapidX ERP - database: " + Database.FilePath()
+        tsbWebStart.Go(config, New Application(), auth)
+    End Sub
+
+
+    ' --- navigation -----------------------------------------------------------------
+    '
+    ' There is no router. Changing screen is a write into the session and a request for a
+    ' rebuild; createRoot then decides afresh.
+
+    Public Function CurrentScreen() As String
+        If Screen Is Nothing OrElse Screen = "" Then
+            Return "customers"
+        End If
+        Return Screen
+    End Function
+
+    Public Function CurrentDocumentKind() As String
+        If DocumentKind Is Nothing OrElse DocumentKind = "" Then
+            Return Document.QUOTATION
+        End If
+        Return DocumentKind
+    End Function
+
+    ' Change screen and ask for the display to be rebuilt.
+    Public Sub Show(name As String)
+        Screen = name
+        tsbWebSession.rebuild()
+    End Sub
+
+    ' The same, with one line of feedback above the content.
+    Public Sub ShowWith(name As String, text As String)
+        Message = text
+        Show(name)
+    End Sub
+
+    ' Takes the message and clears it. It is meant to appear once, not to stay.
+    Public Function TakeMessage() As String
+        Dim text As String = Message
+        Message = ""
+        If text Is Nothing Then
+            Return ""
+        End If
+        Return text
+    End Function
+
+End Module
+
+
+' The application makes exactly one decision: which form this user is looking at.
+' Everything else is a form.
+Public Class Application
+    Implements tsbWebApp
+
+    Public Function title() As String
+        Return "RapidX ERP"
+    End Function
+
+    ' Runs once per session, and again on every screen change, on the session thread.
+    '
+    ' A new instance every time, never a shared one: two users writing into the same
+    ' JTextField would watch each other type.
+    Public Function createRoot(session As tsbWebSession) As Component
+        If session.SignedIn Then
+            Return New MainForm().GetRootPane()
+        End If
+        Return New SignInForm().GetRootPane()
+    End Function
+
+End Class

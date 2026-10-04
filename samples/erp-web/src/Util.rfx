@@ -1,0 +1,115 @@
+' The four small things that would otherwise be written out again in every form.
+'
+' Numbers and dates travel constantly between the screen, the database and a document, and each
+' of those conversions has exactly one right shape. It is written here once.
+'
+' In the database a date is "2026-09-08" - the form SQLite compares and sorts - and that is what
+' the screen shows too. Amounts read "1,234.50 EUR".
+'
+' Both are deliberate and both used to be otherwise. This program is a demonstration as much as
+' an application: whoever opens it may be reading it anywhere, and an amount or a date that means
+' one thing in one country and another somewhere else is worse than one nobody is used to.
+
+Module Util
+
+    ' Reads a number somebody typed. "1,234.50", "1234.50" and "1234,50" all mean the same;
+    ' nonsense is 0.
+    '
+    ' Lenient on purpose rather than strict: a quantity with a stray space stuck to it must not
+    ' produce an error dialog. And lenient in both directions, because the program shows English
+    ' amounts to people who may well type a comma for the decimal out of habit. A comma with a
+    ' dot beside it is a thousands separator and goes; a comma on its own is a decimal point.
+    Public Function ToNumber(text As String) As Double
+        If text Is Nothing Then
+            Return 0
+        End If
+        Dim clean As String = Trim(text)
+        If InStr(clean, ".") > 0 Then
+            clean = Replace(clean, ",", "")
+        Else
+            clean = Replace(clean, ",", ".")
+        End If
+        clean = Replace(clean, " ", "")
+        If clean = "" Then
+            Return 0
+        End If
+        Try
+            Return Double.parseDouble(clean)
+        Catch e As java.lang.NumberFormatException
+            Return 0
+        End Try
+    End Function
+
+    ' 1234.5 becomes "1,234.50" - no currency, for a table column.
+    '
+    ' Written out with an explicit English locale rather than with Format(), which follows
+    ' whatever language the machine is set to. That is the difference between a demonstration
+    ' that reads the same everywhere and one that says "1.405,39" on one laptop and "1,405.39"
+    ' on the next - and an English reader takes the first for one and a half.
+    Private Function Grouped(value As Double, pattern As String) As String
+        Dim shape As java.text.DecimalFormat = New java.text.DecimalFormat(pattern, _
+                java.text.DecimalFormatSymbols.getInstance(java.util.Locale.ENGLISH))
+        Return shape.format(value)
+    End Function
+
+    Public Function Money(value As Double) As String
+        Return Grouped(value, "#,##0.00")
+    End Function
+
+    ' The same with the currency, for a totals line. The currency stays the euro: the business
+    ' this program does is priced in euros, and translating an amount is not translating a word.
+    Public Function MoneyWithEuro(value As Double) As String
+        Return Grouped(value, "#,##0.00") + " EUR"
+    End Function
+
+    ' A quantity shows only the decimals it needs: 3 rather than 3.000.
+    Public Function QuantityText(value As Double) As String
+        If value = Fix(value) Then
+            Return CStr(CLng(value))
+        End If
+        Return Grouped(value, "#,##0.###")
+    End Function
+
+    ' --- dates -------------------------------------------------------------------
+
+    Public Function TodayIso() As String
+        Return Format(Today(), "yyyy-mm-dd")
+    End Function
+
+    ' The screen shows the date the database holds: "2026-09-08".
+    '
+    ' It used to show "08.09.2026" and convert in both directions. ISO instead, because this
+    ' program is read in more than one country and 08.09 is the eighth of September to one reader
+    ' and the ninth of August to the next. A date nobody can misread is worth more than a
+    ' familiar one, and it costs a conversion rather than gaining one.
+    Public Function DateShown(iso As String) As String
+        If iso Is Nothing OrElse Len(iso) < 10 Then
+            Return ""
+        End If
+        Return Left(iso, 10)
+    End Function
+
+    ' Back from the screen. ISO passes straight through; "08.09.2026" is still understood,
+    ' because somebody who has typed it that way for twenty years will type it again.
+    Public Function DateToIso(shown As String) As String
+        Dim text As String = Trim(shown)
+        If Len(text) = 10 AndAlso Mid(text, 4, 1) = "-" Then
+            Return text
+        End If
+        If Len(text) = 10 AndAlso Mid(text, 2, 1) = "." Then
+            Return Right(text, 4) + "-" + Mid(text, 3, 2) + "-" + Left(text, 2)
+        End If
+        Return TodayIso()
+    End Function
+
+    ' --- text ---------------------------------------------------------------------
+
+    ' What comes out of the database may be Nothing; what goes into a text field may not.
+    Public Function Text(value As String) As String
+        If value Is Nothing Then
+            Return ""
+        End If
+        Return value
+    End Function
+
+End Module

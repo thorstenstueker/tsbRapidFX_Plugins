@@ -1,0 +1,268 @@
+' The customer list: search, select, edit, delete.
+'
+' The table shows text, but the work is done with customers. That is why the list hits sits
+' beside it in the same order: the selected row number is then a customer rather than a row
+' number, and nobody has to translate a cell back into a customer number.
+'
+' This screen is built once and kept by MainWindow. Coming back to it from a customer sheet does
+' not build a new one - which is why the search box still holds what was typed into it.
+Imports java.awt
+Imports java.awt.event
+Imports java.util
+Imports javax.swing
+
+Public Class CustomerListForm
+
+    Private shell As MainWindow
+
+    ' The customers currently in the table - row for row, the same order.
+    Private hits As ArrayList = New ArrayList()
+
+    Public Sub New(owner As MainWindow)
+        InitDesignerComponents()
+        shell = owner
+        Fill()
+    End Sub
+
+    ' Called when the user comes back to this screen. The data may have changed underneath -
+    ' somebody has just saved a customer - but what was typed and what was selected has not, and
+    ' both are put back.
+    Public Sub Refresh()
+        Dim row As Integer = tblCustomers.Table().getSelectedRow()
+        Fill()
+        SelectRow(row)
+    End Sub
+
+    ' Searches and writes the result into the table.
+    '
+    ' Fill first, then one Reload: a thousand rows are one event that way instead of a thousand.
+    Private Sub Fill()
+        hits = CustomerFile.Search(txtSearch.Text)
+
+        tblCustomers.Clear()
+        Dim entry As Object
+        For Each entry In hits
+            Dim k As Customer = CType(entry, Customer)
+            tblCustomers.AddRow(k.Number, k.Name, k.Contact, k.CityLine(), _
+                                k.Phone, k.EMail)
+        Next entry
+        tblCustomers.Reload()
+
+        lblCount.Text = hits.size() + " customers found"
+        lblHint.Text = ""
+    End Sub
+
+    Private Sub SelectRow(row As Integer)
+        If row >= 0 AndAlso row < hits.size() Then
+            tblCustomers.Table().setRowSelectionInterval(row, row)
+        End If
+    End Sub
+
+    ' The customer in the selected row, or Nothing.
+    Private Function Chosen() As Customer
+        Dim row As Integer = tblCustomers.Table().getSelectedRow()
+        If row < 0 OrElse row >= hits.size() Then
+            lblHint.Text = "Please select a row first."
+            Return Nothing
+        End If
+        lblHint.Text = ""
+        Return CType(hits.get(row), Customer)
+    End Function
+
+    ' --- the buttons ---------------------------------------------------------------------
+
+    Private Sub OnSearch(e As ActionEvent)
+        Fill()
+    End Sub
+
+    Private Sub OnAll(e As ActionEvent)
+        txtSearch.Text = ""
+        Fill()
+    End Sub
+
+    Private Sub OnNew(e As ActionEvent)
+        shell.ShowCustomerSheet(0)
+    End Sub
+
+    Private Sub OnEdit(e As ActionEvent)
+        Dim k As Customer = Chosen()
+        If k Is Nothing Then
+            Exit Sub
+        End If
+        shell.ShowCustomerSheet(k.Id)
+    End Sub
+
+    ' Deleting asks first. A customer who appears on a document stays - CustomerFile.Delete
+    ' decides that and says so in one sentence, which we only pass on.
+    '
+    ' JOptionPane is the JDK's own dialog. It needs a parent window so that it appears over the
+    ' right one and blocks it while it is open; MainWindow hands ours out.
+    Private Sub OnDelete(e As ActionEvent)
+        Dim k As Customer = Chosen()
+        If k Is Nothing Then
+            Exit Sub
+        End If
+        Dim answer As Integer = JOptionPane.showConfirmDialog(shell.Owner(), _
+                "Really delete customer " + k.Number + " - " + k.Name + "?", _
+                "Delete", JOptionPane.YES_NO_OPTION)
+        If answer <> JOptionPane.YES_OPTION Then
+            Exit Sub
+        End If
+
+        Dim problem As String = CustomerFile.Delete(k.Id)
+        If problem <> "" Then
+            lblHint.Text = problem
+            Exit Sub
+        End If
+        Fill()
+        lblHint.Text = "Customer " + k.Number + " deleted."
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                              TSB RAPIDFX LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=CustomerListForm root=AnchorPanel ziel=DESKTOP platform=CUSTOM w=1132 h=590 showIn=false theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblTitle parent=rootPane L=0 T=0 W=520 H=28
+    Private lblTitle As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtSearch parent=rootPane L=0 T=40 W=360 H=28
+    Private txtSearch As JTextField = New JTextField()
+
+    ' @tsbswx Button btnSearch parent=rootPane L=370 T=40 W=110 H=28
+    Private btnSearch As JButton = New JButton()
+
+    ' @tsbswx Button btnAll parent=rootPane L=488 T=40 W=110 H=28
+    Private btnAll As JButton = New JButton()
+
+    ' @tsbswx Button btnNew parent=rootPane T=40 R=244 W=110 H=28
+    Private btnNew As JButton = New JButton()
+
+    ' @tsbswx Button btnEdit parent=rootPane T=40 R=126 W=110 H=28
+    Private btnEdit As JButton = New JButton()
+
+    ' @tsbswx Button btnDelete parent=rootPane T=40 R=0 W=118 H=28
+    Private btnDelete As JButton = New JButton()
+
+    ' @tsbswx Label lblCount parent=rootPane L=0 T=80 W=400 H=22
+    Private lblCount As JLabel = New JLabel()
+
+    ' @tsbswx Label lblHint parent=rootPane L=420 T=80 R=0 W=712 H=22
+    Private lblHint As JLabel = New JLabel()
+
+    ' @tsbswx SmartTable tblCustomers parent=rootPane L=0 T=110 R=0 B=0 W=1132 H=480
+    Private tblCustomers As tsbSmartTable = New tsbSmartTable()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1132, 590))
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setFont(New Font("SansSerif", Font.BOLD, 18))
+        lblTitle.setText("Customers")
+        lblTitle.setPreferredSize(New Dimension(520, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblTitle, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblTitle, 0, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblTitle)
+
+        txtSearch.setName("txtSearch")
+        txtSearch.setToolTipText("Searches: Number, name, contact, city or e-mail")
+        txtSearch.addActionListener(AddressOf OnSearch)
+        txtSearch.setPreferredSize(New Dimension(360, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtSearch, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtSearch, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtSearch)
+
+        btnSearch.setName("btnSearch")
+        btnSearch.setText("Search")
+        btnSearch.addActionListener(AddressOf OnSearch)
+        btnSearch.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnSearch, 370, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSearch, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnSearch)
+
+        btnAll.setName("btnAll")
+        btnAll.setText("All")
+        btnAll.addActionListener(AddressOf OnAll)
+        btnAll.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnAll, 488, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnAll, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnAll)
+
+        btnNew.setName("btnNew")
+        btnNew.setText("New")
+        btnNew.addActionListener(AddressOf OnNew)
+        btnNew.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnNew, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnNew, -244, SpringLayout.EAST, rootPane)
+        rootPane.add(btnNew)
+
+        btnEdit.setName("btnEdit")
+        btnEdit.setText("Edit")
+        btnEdit.addActionListener(AddressOf OnEdit)
+        btnEdit.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnEdit, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnEdit, -126, SpringLayout.EAST, rootPane)
+        rootPane.add(btnEdit)
+
+        btnDelete.setName("btnDelete")
+        btnDelete.setText("Delete")
+        btnDelete.addActionListener(AddressOf OnDelete)
+        btnDelete.setPreferredSize(New Dimension(118, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnDelete, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnDelete, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(btnDelete)
+
+        lblCount.setName("lblCount")
+        lblCount.setText("")
+        lblCount.setPreferredSize(New Dimension(400, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblCount, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblCount, 80, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblCount)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setHorizontalAlignment(SwingConstants.RIGHT)
+        lblHint.setPreferredSize(New Dimension(712, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHint, 420, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHint, 80, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblHint, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(lblHint)
+
+        tblCustomers.setName("tblCustomers")
+        tblCustomers.setColumns("Number, Name, Contact, City, Phone, E-Mail")
+        tblCustomers.setColumnWidths("10%, 26%, 20%, 16%, 12%, 16%")
+        tblCustomers.setRowHeight(24)
+        rootPaneLayout.putConstraint(SpringLayout.WEST, tblCustomers, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, tblCustomers, 110, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, tblCustomers, 0, SpringLayout.EAST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.SOUTH, tblCustomers, 0, SpringLayout.SOUTH, rootPane)
+        rootPane.add(tblCustomers)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class

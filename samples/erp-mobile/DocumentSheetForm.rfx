@@ -1,0 +1,395 @@
+' One document: head, lines, totals.
+'
+' The biggest screen in the program, and the one where the business actually happens. Choose a
+' customer, choose an article, say how many, add the line — net, VAT and gross stand underneath
+' immediately.
+'
+' The document arrives as an object, not as an id. A new one and a carried-over one exist
+' before they have ever been in the database, and both have to be editable before they are
+' saved. That is why DocumentListForm builds it and hands it over.
+
+Imports tsb.mobile
+Imports java.util
+
+Public Class DocumentSheetForm
+    Implements Form
+
+    Private doc As Document
+
+    ' The two drop-downs are filled from these, and the index into them is the answer.
+    Private customers As ArrayList = New ArrayList()
+    Private articles As ArrayList = New ArrayList()
+
+    Public Sub New(document As Document)
+        doc = document
+    End Sub
+
+    Private Sub OnFormBuilt()
+        drpArea.setItems(Shell.Areas())
+        drpArea.setSelectedIndex(2)
+
+        FillCombos()
+        Display()
+    End Sub
+
+    ' --- the two lists behind the drop-downs --------------------------------------------
+
+    ' A leading "please choose" entry, so that index 0 means "nothing chosen".
+    '
+    ' Without it, filling the drop-down would select the first customer, and a document that
+    ' nobody touched would silently belong to whoever happens to sort first.
+    Private Sub FillCombos()
+        Dim none As Customer = New Customer()
+        none.Number = ""
+        none.Name = "— please choose a customer —"
+
+        customers = New ArrayList()
+        customers.add(none)
+        customers.addAll(CustomerFile.All())
+
+        Dim namen As ArrayList = New ArrayList()
+        Dim i As Integer
+        For i = 0 To customers.size() - 1
+            Dim k As Customer = CType(customers.get(i), Customer)
+            If k.Number = "" Then
+                namen.add(k.Name)
+            Else
+                namen.add(k.Number + "  " + k.Name)
+            End If
+        Next i
+        drpCustomer.setItems(namen)
+
+        articles = ArticleFile.All()
+        Dim titel As ArrayList = New ArrayList()
+        For i = 0 To articles.size() - 1
+            Dim a As Article = CType(articles.get(i), Article)
+            titel.add(a.Number + "  " + a.Name)
+        Next i
+        drpArticle.setItems(titel)
+    End Sub
+
+    Private Sub Display()
+        lblTitle.setText(Bezeichnung(doc.Kind) + " " + doc.Number)
+        txtDate.setText(Util.DateShown(doc.DateIso))
+        txtSubject.setText(Util.Text(doc.Subject))
+
+        drpCustomer.setSelectedIndex(CustomerIndex())
+        ' Only a quotation or a delivery note can still become something.
+        btnConvert.setVisible(doc.Kind <> Document.INVOICE)
+
+        ShowLines()
+        lblHint.setText("")
+    End Sub
+
+    Private Function Bezeichnung(k As String) As String
+        If k = Document.DELIVERYNOTE Then
+            Return "Delivery note"
+        End If
+        If k = Document.INVOICE Then
+            Return "Invoice"
+        End If
+        Return "Quotation"
+    End Function
+
+    Private Function CustomerIndex() As Integer
+        Dim i As Integer
+        For i = 0 To customers.size() - 1
+            Dim k As Customer = CType(customers.get(i), Customer)
+            If k.Id = doc.CustomerId Then
+                Return i
+            End If
+        Next i
+        Return 0
+    End Function
+
+    Private Sub ShowLines()
+        tblLines.clearRows()
+        Dim i As Integer
+        For i = 0 To doc.LineCount() - 1
+            Dim p As DocumentLine = doc.LineAt(i)
+            tblLines.addRow("" + (i + 1), p.Number, p.Name, _
+                    Util.QuantityText(p.Quantity), Util.Text(p.Unit), _
+                    Util.Money(p.UnitPrice), Util.Money(p.Amount()))
+        Next i
+        Totals()
+    End Sub
+
+    Private Sub Totals()
+        lblTotals.setText("Net " + Util.MoneyWithEuro(doc.Net()) _
+                + "    ·    VAT " + Util.MoneyWithEuro(doc.Tax()) _
+                + "    ·    Total " + Util.MoneyWithEuro(doc.Gross()))
+    End Sub
+
+    ' Everything on the head, before anything that rebuilds the screen.
+    Private Sub CollectHead()
+        doc.DateIso = Util.DateToIso(txtDate.getText())
+        doc.Subject = Trim(txtSubject.getText())
+
+        Dim index As Integer = drpCustomer.getSelectedIndex()
+        If index <= 0 OrElse index >= customers.size() Then
+            doc.CustomerId = 0
+            doc.CustomerName = ""
+            Exit Sub
+        End If
+        Dim k As Customer = CType(customers.get(index), Customer)
+        doc.CustomerId = k.Id
+        doc.CustomerName = k.Name
+    End Sub
+
+    ' --- the lines -----------------------------------------------------------------------
+
+    Private Sub OnLineAdd(source As Button)
+        Dim index As Integer = drpArticle.getSelectedIndex()
+        If index < 0 OrElse index >= articles.size() Then
+            lblHint.setText("Please choose an article first.")
+            Exit Sub
+        End If
+
+        Dim quantity As Double = Util.ToNumber(txtQuantity.getText())
+        If quantity = 0 Then
+            quantity = 1
+        End If
+
+        CollectHead()
+        doc.AddLine(DocumentLine.FromArticle(CType(articles.get(index), Article), quantity))
+        txtQuantity.setText("1")
+        ShowLines()
+        lblHint.setText("")
+    End Sub
+
+    Private Sub OnLineRemove(source As Button)
+        Dim row As Integer = tblLines.getSelectedRow()
+        If row < 0 OrElse row >= doc.LineCount() Then
+            lblHint.setText("Please select a line first.")
+            Exit Sub
+        End If
+        CollectHead()
+        doc.RemoveLine(row)
+        ShowLines()
+        lblHint.setText("")
+    End Sub
+
+    ' --- what the buttons do ---------------------------------------------------------------
+
+    Private Sub OnSave(source As Button)
+        CollectHead()
+        If doc.CustomerId = 0 Then
+            lblHint.setText("The document cannot be saved without a customer.")
+            Exit Sub
+        End If
+        If doc.LineCount() = 0 Then
+            lblHint.setText("The document cannot be saved without lines.")
+            Exit Sub
+        End If
+
+        DocumentFile.Save(doc)
+        Shell.ShowDocuments()
+        Shell.Say(doc.Kind + " " + doc.Number + " saved — " _
+                + Util.MoneyWithEuro(doc.Gross()) + ".")
+    End Sub
+
+    ' Save, then carry over — and the new one is not saved. Somebody should see an invoice
+    ' before it exists.
+    Private Sub OnConvert(source As Button)
+        CollectHead()
+        If doc.CustomerId = 0 OrElse doc.LineCount() = 0 Then
+            lblHint.setText("Customer and lines first, then convert.")
+            Exit Sub
+        End If
+        DocumentFile.Save(doc)
+        Dim fresh As Document = DocumentFile.CarryOver(doc, Document.INVOICE)
+        Shell.ShowDocumentSheet(fresh)
+    End Sub
+
+    Private Sub OnBack(source As Button)
+        Shell.ShowDocuments()
+    End Sub
+
+    Private Sub OnAreaChosen(source As Widget, index As Integer, text As String)
+        If index = 2 Then
+            Exit Sub
+        End If
+        Shell.GoTo(index)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=DocumentSheetForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Dropdown drpArea L=24 T=16 W=260 H=48
+    Private drpArea As Dropdown = New Dropdown()
+
+    ' @tsbmob Label lblTitle L=16@drpArea.RIGHT T=20 W=420 H=36
+    Private lblTitle As Label = New Label()
+
+    ' @tsbmob Dropdown drpCustomer L=24 T=16@drpArea.BOTTOM W=470 H=48
+    Private drpCustomer As Dropdown = New Dropdown()
+
+    ' @tsbmob TextField txtDate L=16@drpCustomer.RIGHT T=16@drpArea.BOTTOM W=180 H=48
+    Private txtDate As TextField = New TextField()
+
+    ' @tsbmob TextField txtSubject L=16@txtDate.RIGHT T=16@drpArea.BOTTOM R=24 W=360 H=48
+    Private txtSubject As TextField = New TextField()
+
+    ' @tsbmob Dropdown drpArticle L=24 T=12@drpCustomer.BOTTOM W=470 H=48
+    Private drpArticle As Dropdown = New Dropdown()
+
+    ' @tsbmob TextField txtQuantity L=16@drpArticle.RIGHT T=12@drpCustomer.BOTTOM W=120 H=48
+    Private txtQuantity As TextField = New TextField()
+
+    ' @tsbmob Button btnAdd L=12@txtQuantity.RIGHT T=12@drpCustomer.BOTTOM W=150 H=48
+    Private btnAdd As Button = New Button()
+
+    ' @tsbmob Button btnRemove L=12@btnAdd.RIGHT T=12@drpCustomer.BOTTOM W=180 H=48
+    Private btnRemove As Button = New Button()
+
+    ' @tsbmob Table tblLines L=24 T=16@drpArticle.BOTTOM R=24 B=150 W=1064 H=380
+    Private tblLines As Table = New Table()
+
+    ' @tsbmob Label lblTotals L=24 T=12@tblLines.BOTTOM R=24 W=1064 H=32
+    Private lblTotals As Label = New Label()
+
+    ' @tsbmob Button btnSave L=24 T=8@lblTotals.BOTTOM W=170 H=52
+    Private btnSave As Button = New Button()
+
+    ' @tsbmob Button btnBack L=16@btnSave.RIGHT T=8@lblTotals.BOTTOM W=170 H=52
+    Private btnBack As Button = New Button()
+
+    ' @tsbmob Button btnConvert L=16@btnBack.RIGHT T=8@lblTotals.BOTTOM W=210 H=52
+    Private btnConvert As Button = New Button()
+
+    ' @tsbmob Label lblHint L=24@btnConvert.RIGHT T=8@lblTotals.BOTTOM R=24 W=380 H=52
+    Private lblHint As Label = New Label()
+
+    Public Function build() As Screen
+        schirm.setTitle("Document")
+
+        drpArea.setName("drpArea")
+        drpArea.onSelect(AddressOf OnAreaChosen)
+        drpArea.setSize(260, 48)
+        schirm.add(drpArea)
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setText("Document")
+        lblTitle.setTextSize(24)
+        lblTitle.setBold(True)
+        lblTitle.setSize(420, 36)
+        schirm.add(lblTitle)
+
+        drpCustomer.setName("drpCustomer")
+        drpCustomer.setSize(470, 48)
+        schirm.add(drpCustomer)
+
+        txtDate.setName("txtDate")
+        txtDate.setHint("Date")
+        txtDate.setSize(180, 48)
+        schirm.add(txtDate)
+
+        txtSubject.setName("txtSubject")
+        txtSubject.setHint("Subject")
+        txtSubject.setHeight(48)
+        schirm.add(txtSubject)
+
+        drpArticle.setName("drpArticle")
+        drpArticle.setSize(470, 48)
+        schirm.add(drpArticle)
+
+        txtQuantity.setName("txtQuantity")
+        txtQuantity.setText("1")
+        txtQuantity.setSize(120, 48)
+        schirm.add(txtQuantity)
+
+        MakeButton(btnAdd, "Add line", 150, 48, AddressOf OnLineAdd)
+        MakeButton(btnRemove, "Remove line", 180, 48, AddressOf OnLineRemove)
+
+        tblLines.setName("tblLines")
+        tblLines.setColumns("#", "Number", "Name", "Qty", "Unit", "Price", "Amount")
+        tblLines.setColumnWeights(1, 2, 6, 1, 1, 2, 2)
+        schirm.add(tblLines)
+
+        lblTotals.setName("lblTotals")
+        lblTotals.setText("")
+        lblTotals.setBold(True)
+        lblTotals.setHeight(32)
+        schirm.add(lblTotals)
+
+        MakeButton(btnSave, "Save", 170, 52, AddressOf OnSave)
+        MakeButton(btnBack, "Back", 170, 52, AddressOf OnBack)
+        MakeButton(btnConvert, "To invoice", 210, 52, AddressOf OnConvert)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setHeight(52)
+        schirm.add(lblHint)
+
+        schirm.anchor(drpArea, Edge.LEFT, 24)
+        schirm.anchor(drpArea, Edge.TOP, 16)
+        schirm.anchor(lblTitle, Edge.LEFT, 16, drpArea, Edge.RIGHT)
+        schirm.anchor(lblTitle, Edge.TOP, 20)
+
+        schirm.anchor(drpCustomer, Edge.LEFT, 24)
+        schirm.anchor(drpCustomer, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+        schirm.anchor(txtDate, Edge.LEFT, 16, drpCustomer, Edge.RIGHT)
+        schirm.anchor(txtDate, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+        schirm.anchor(txtSubject, Edge.LEFT, 16, txtDate, Edge.RIGHT)
+        schirm.anchor(txtSubject, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+        schirm.anchor(txtSubject, Edge.RIGHT, 24)
+
+        schirm.anchor(drpArticle, Edge.LEFT, 24)
+        schirm.anchor(drpArticle, Edge.TOP, 12, drpCustomer, Edge.BOTTOM)
+        schirm.anchor(txtQuantity, Edge.LEFT, 16, drpArticle, Edge.RIGHT)
+        schirm.anchor(txtQuantity, Edge.TOP, 12, drpCustomer, Edge.BOTTOM)
+        schirm.anchor(btnAdd, Edge.LEFT, 12, txtQuantity, Edge.RIGHT)
+        schirm.anchor(btnAdd, Edge.TOP, 12, drpCustomer, Edge.BOTTOM)
+        schirm.anchor(btnRemove, Edge.LEFT, 12, btnAdd, Edge.RIGHT)
+        schirm.anchor(btnRemove, Edge.TOP, 12, drpCustomer, Edge.BOTTOM)
+
+        schirm.anchor(tblLines, Edge.LEFT, 24)
+        schirm.anchor(tblLines, Edge.TOP, 16, drpArticle, Edge.BOTTOM)
+        schirm.anchor(tblLines, Edge.RIGHT, 24)
+        schirm.anchor(tblLines, Edge.BOTTOM, 150)
+
+        schirm.anchor(lblTotals, Edge.LEFT, 24)
+        schirm.anchor(lblTotals, Edge.TOP, 12, tblLines, Edge.BOTTOM)
+        schirm.anchor(lblTotals, Edge.RIGHT, 24)
+
+        schirm.anchor(btnSave, Edge.LEFT, 24)
+        schirm.anchor(btnSave, Edge.TOP, 8, lblTotals, Edge.BOTTOM)
+        schirm.anchor(btnBack, Edge.LEFT, 16, btnSave, Edge.RIGHT)
+        schirm.anchor(btnBack, Edge.TOP, 8, lblTotals, Edge.BOTTOM)
+        schirm.anchor(btnConvert, Edge.LEFT, 16, btnBack, Edge.RIGHT)
+        schirm.anchor(btnConvert, Edge.TOP, 8, lblTotals, Edge.BOTTOM)
+        schirm.anchor(lblHint, Edge.LEFT, 24, btnConvert, Edge.RIGHT)
+        schirm.anchor(lblHint, Edge.TOP, 8, lblTotals, Edge.BOTTOM)
+        schirm.anchor(lblHint, Edge.RIGHT, 24)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+
+    Private Sub MakeButton(b As Button, text As String, width As Integer, _
+                      height As Integer, handler As ClickHandler)
+        b.setText(text)
+        b.setSize(width, height)
+        b.onClick(handler)
+        schirm.add(b)
+    End Sub
+
+End Class

@@ -1,0 +1,87 @@
+' What the program remembers between two starts: the theme and the size of the window.
+'
+' This is the sort of thing a desktop program is expected to do and a web page never has to
+' think about - the browser remembers its own window. It is not worth a file of its own: the JDK
+' has Preferences, which writes into whatever place the operating system keeps such settings
+' (on macOS a plist in ~/Library/Preferences, on Windows the registry, on Linux a file under
+' ~/.java).
+'
+' Nothing here is important enough to fail over. Every read has a default, so a machine where
+' this has never run behaves exactly like one where it has.
+Imports javax.swing
+Imports java.awt
+
+Module Settings
+
+    Private Function Node() As java.util.prefs.Preferences
+        Return java.util.prefs.Preferences.userRoot().node("com/tsb/rapidxerpdesktop")
+    End Function
+
+    ' --- the theme ----------------------------------------------------------------
+
+    Public Function Theme() As String
+        Return Node().get("theme", Look.LIGHT)
+    End Function
+
+    Public Sub SetTheme(name As String)
+        Node().put("theme", name)
+    End Sub
+
+    ' --- the window ---------------------------------------------------------------
+
+    ' Only a normal window is worth remembering. A maximised one has the size of the screen,
+    ' and writing that down would make the window unusable on a smaller screen tomorrow - so
+    ' the maximised state is stored, and the size underneath it is left as it was.
+    Public Sub SaveWindow(frame As JFrame)
+        Dim p As java.util.prefs.Preferences = Node()
+        p.putInt("window.state", frame.getExtendedState())
+        If frame.getExtendedState() = JFrame.NORMAL Then
+            p.putInt("window.x", frame.getX())
+            p.putInt("window.y", frame.getY())
+            p.putInt("window.w", frame.getWidth())
+            p.putInt("window.h", frame.getHeight())
+        End If
+    End Sub
+
+    ' Puts the window back where it was, unless that place no longer exists. A laptop
+    ' disconnected from its second screen is the ordinary case: the window was at x = 2400,
+    ' and without this check it would open where nobody can see it.
+    Public Sub RestoreWindow(frame As JFrame)
+        Dim p As java.util.prefs.Preferences = Node()
+        Dim w As Integer = p.getInt("window.w", 0)
+        Dim h As Integer = p.getInt("window.h", 0)
+
+        If w >= 800 AndAlso h >= 500 Then
+            Dim x As Integer = p.getInt("window.x", 0)
+            Dim y As Integer = p.getInt("window.y", 0)
+            If OnScreen(x, y) Then
+                frame.setBounds(x, y, w, h)
+            Else
+                frame.setSize(w, h)
+                frame.setLocationRelativeTo(Nothing)
+            End If
+        End If
+
+        Dim state As Integer = p.getInt("window.state", JFrame.NORMAL)
+        If state = JFrame.MAXIMIZED_BOTH Then
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH)
+        End If
+    End Sub
+
+    ' Is that corner on any screen this computer currently has? The rectangle is shrunk by a
+    ' hundred pixels, so that a window whose title bar is just off the edge does not count.
+    Private Function OnScreen(x As Integer, y As Integer) As Boolean
+        Dim screens As GraphicsDevice() = _
+                GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()
+        Dim i As Integer
+        For i = 0 To UBound(screens)
+            Dim r As Rectangle = screens(i).getDefaultConfiguration().getBounds()
+            If x >= r.x AndAlso y >= r.y _
+                    AndAlso x <= r.x + r.width - 100 AndAlso y <= r.y + r.height - 100 Then
+                Return True
+            End If
+        Next i
+        Return False
+    End Function
+
+End Module

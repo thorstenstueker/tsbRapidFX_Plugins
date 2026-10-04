@@ -1,0 +1,58 @@
+' The look and feel, and the one thing about it that is easy to get wrong.
+'
+' Swing's own appearance is Metal, which nobody keeps. FlatLaf replaces it, and the four themes
+' offered in the View menu are the four FlatLaf ships with.
+'
+' Changing it while the program runs takes TWO steps, and neither is enough on its own:
+'
+'   setup()            tells UIManager what to build from here on
+'   FlatLaf.updateUI() goes through the windows that already exist and has them rebuild
+'
+' Do only the first and the running window keeps the look it was born with. Do only the second
+' and there is nothing new to rebuild it with.
+Imports com.formdev.flatlaf
+Imports javax.swing
+
+Module Look
+
+    Public Const LIGHT As String = "Light"
+    Public Const DARK As String = "Dark"
+    Public Const INTELLIJ As String = "IntelliJ"
+    Public Const DARCULA As String = "Darcula"
+
+    ' At startup, before the first window exists. Nothing to rebuild yet.
+    Public Sub Setup(name As String)
+        Select Case name
+            Case DARK
+                FlatDarkLaf.setup()
+            Case INTELLIJ
+                FlatIntelliJLaf.setup()
+            Case DARCULA
+                FlatDarculaLaf.setup()
+            Case Else
+                FlatLightLaf.setup()
+        End Select
+        Words()
+    End Sub
+
+    ' The standard dialogs take their button texts from the machine's language: on a German
+    ' computer JOptionPane says "Ja" and "Nein" in the middle of an otherwise English program.
+    ' These four lines settle it.
+    '
+    ' They sit here, right after setup(), and not once in Sub Main - because installing a look
+    ' and feel replaces the very table they are written into. Set at startup only, they would be
+    ' gone again after the first theme change.
+    Private Sub Words()
+        UIManager.put("OptionPane.yesButtonText", "Yes")
+        UIManager.put("OptionPane.noButtonText", "No")
+        UIManager.put("OptionPane.cancelButtonText", "Cancel")
+        UIManager.put("OptionPane.okButtonText", "OK")
+    End Sub
+
+    ' While the program runs. Sets it up and makes the open windows follow.
+    Public Sub Switch(name As String)
+        Setup(name)
+        FlatLaf.updateUI()
+    End Sub
+
+End Module

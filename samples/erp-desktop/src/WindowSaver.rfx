@@ -1,0 +1,37 @@
+' Writes the window's size down when the window is closed.
+'
+' A WindowListener has seven methods and this program cares about one of them. That is not a
+' fault of the design: an interface says what a listener may be told, and being told more than
+' you want to know costs six empty Subs.
+'
+' windowClosing arrives before the window is disposed of, which is the only moment at which its
+' size can still be read. windowClosed would be too late.
+Imports java.awt.event
+Imports javax.swing
+
+Public Class WindowSaver
+    Implements WindowListener
+
+    Public Sub windowClosing(e As WindowEvent)
+        Settings.SaveWindow(CType(e.getWindow(), JFrame))
+    End Sub
+
+    Public Sub windowOpened(e As WindowEvent)
+    End Sub
+
+    Public Sub windowClosed(e As WindowEvent)
+    End Sub
+
+    Public Sub windowIconified(e As WindowEvent)
+    End Sub
+
+    Public Sub windowDeiconified(e As WindowEvent)
+    End Sub
+
+    Public Sub windowActivated(e As WindowEvent)
+    End Sub
+
+    Public Sub windowDeactivated(e As WindowEvent)
+    End Sub
+
+End Class

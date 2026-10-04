@@ -1,0 +1,381 @@
+' The customer sheet: one customer, every field, save or cancel.
+'
+' Which customer is meant sits in Main.CustomerId - a SessionStatic. That is why this form needs
+' no constructor parameter and the list needs to know nothing about how it is built. Zero means
+' "a new customer", and then the number comes from the customer file.
+Imports java.awt
+Imports java.awt.event
+Imports javax.swing
+
+Public Class CustomerSheetForm
+
+    ' The customer being edited. A field of this instance, not a Shared one - two users editing
+    ' a customer at the same time have two forms and two customers.
+    Private cust As Customer
+
+    Public Sub New()
+        InitDesignerComponents()
+        cust = Fetch()
+        Display()
+    End Sub
+
+    Private Function Fetch() As Customer
+        If Main.CustomerId = 0 Then
+            Dim fresh As Customer = New Customer()
+            fresh.Number = CustomerFile.NextNumber()
+            Return fresh
+        End If
+        Dim existing As Customer = CustomerFile.Load(Main.CustomerId)
+        If existing Is Nothing Then
+            Return New Customer()
+        End If
+        Return existing
+    End Function
+
+    ' From the customer into the fields.
+    Private Sub Display()
+        If cust.Id = 0 Then
+            lblTitle.Text = "New customer"
+        Else
+            lblTitle.Text = "Customer " + cust.Number
+        End If
+        txtNumber.Text = cust.Number
+        txtName.Text = cust.Name
+        txtContact.Text = cust.Contact
+        txtStreet.Text = cust.Street
+        txtPostCode.Text = cust.PostCode
+        txtCity.Text = cust.City
+        txtCountry.Text = cust.Country
+        txtEMail.Text = cust.EMail
+        txtPhone.Text = cust.Phone
+        txtVatId.Text = cust.VatId
+        txaNote.Text = cust.Note
+    End Sub
+
+    ' From the fields into the customer.
+    Private Sub Collect()
+        cust.Number = Trim(txtNumber.Text)
+        cust.Name = Trim(txtName.Text)
+        cust.Contact = Trim(txtContact.Text)
+        cust.Street = Trim(txtStreet.Text)
+        cust.PostCode = Trim(txtPostCode.Text)
+        cust.City = Trim(txtCity.Text)
+        cust.Country = Trim(txtCountry.Text)
+        cust.EMail = Trim(txtEMail.Text)
+        cust.Phone = Trim(txtPhone.Text)
+        cust.VatId = Trim(txtVatId.Text)
+        cust.Note = txaNote.Text
+    End Sub
+
+    ' --- the buttons ---------------------------------------------------------------------
+
+    Private Sub OnSave(e As ActionEvent)
+        Collect()
+        If cust.Number = "" Then
+            lblHint.Text = "A customer number is required."
+            Exit Sub
+        End If
+        If cust.Name = "" Then
+            lblHint.Text = "A name is required."
+            Exit Sub
+        End If
+
+        CustomerFile.Save(cust)
+        Main.CustomerId = cust.Id
+        Main.ShowWith("customers", "Customer " + cust.Number + " saved.")
+    End Sub
+
+    Private Sub OnCancel(e As ActionEvent)
+        Main.Show("customers")
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                            TSB RAPIDFX WEB LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=CustomerSheetForm root=AnchorPanel ziel=WEB platform=CUSTOM w=1132 h=590 showIn=false theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblTitle parent=rootPane L=0 T=0 W=520 H=28
+    Private lblTitle As JLabel = New JLabel()
+
+    ' @tsbswx Label lblNumber parent=rootPane L=0 T=50 W=130 H=24
+    Private lblNumber As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtNumber parent=rootPane L=140 T=48 W=320 H=28
+    Private txtNumber As JTextField = New JTextField()
+
+    ' @tsbswx Label lblName parent=rootPane L=0 T=90 W=130 H=24
+    Private lblName As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtName parent=rootPane L=140 T=88 W=320 H=28
+    Private txtName As JTextField = New JTextField()
+
+    ' @tsbswx Label lblContact parent=rootPane L=0 T=130 W=130 H=24
+    Private lblContact As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtContact parent=rootPane L=140 T=128 W=320 H=28
+    Private txtContact As JTextField = New JTextField()
+
+    ' @tsbswx Label lblStreet parent=rootPane L=0 T=170 W=130 H=24
+    Private lblStreet As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtStreet parent=rootPane L=140 T=168 W=320 H=28
+    Private txtStreet As JTextField = New JTextField()
+
+    ' @tsbswx Label lblPostCode parent=rootPane L=0 T=210 W=130 H=24
+    Private lblPostCode As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtPostCode parent=rootPane L=140 T=208 W=120 H=28
+    Private txtPostCode As JTextField = New JTextField()
+
+    ' @tsbswx Label lblCity parent=rootPane L=0 T=250 W=130 H=24
+    Private lblCity As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtCity parent=rootPane L=140 T=248 W=320 H=28
+    Private txtCity As JTextField = New JTextField()
+
+    ' @tsbswx Label lblCountry parent=rootPane L=0 T=290 W=130 H=24
+    Private lblCountry As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtCountry parent=rootPane L=140 T=288 W=320 H=28
+    Private txtCountry As JTextField = New JTextField()
+
+    ' @tsbswx Label lblEMail parent=rootPane L=520 T=50 W=130 H=24
+    Private lblEMail As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtEMail parent=rootPane L=660 T=48 W=320 H=28
+    Private txtEMail As JTextField = New JTextField()
+
+    ' @tsbswx Label lblPhone parent=rootPane L=520 T=90 W=130 H=24
+    Private lblPhone As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtPhone parent=rootPane L=660 T=88 W=320 H=28
+    Private txtPhone As JTextField = New JTextField()
+
+    ' @tsbswx Label lblVatId parent=rootPane L=520 T=130 W=130 H=24
+    Private lblVatId As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtVatId parent=rootPane L=660 T=128 W=320 H=28
+    Private txtVatId As JTextField = New JTextField()
+
+    ' @tsbswx Label lblNote parent=rootPane L=520 T=170 W=150 H=24
+    Private lblNote As JLabel = New JLabel()
+
+    ' @tsbswx TextArea txaNote parent=rootPane L=660 T=168 W=320 H=152
+    Private txaNote As JTextArea = New JTextArea()
+
+    ' @tsbswx Button btnSave parent=rootPane L=140 T=356 W=160 H=32
+    Private btnSave As JButton = New JButton()
+
+    ' @tsbswx Button btnCancel parent=rootPane L=310 T=356 W=160 H=32
+    Private btnCancel As JButton = New JButton()
+
+    ' @tsbswx Label lblHint parent=rootPane L=140 T=402 W=700 H=22
+    Private lblHint As JLabel = New JLabel()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1132, 590))
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setFont(New Font("SansSerif", Font.BOLD, 18))
+        lblTitle.setText("Customer")
+        lblTitle.setPreferredSize(New Dimension(520, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblTitle, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblTitle, 0, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblTitle)
+
+        lblNumber.setName("lblNumber")
+        lblNumber.setText("Customer number")
+        lblNumber.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblNumber, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblNumber, 50, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblNumber)
+
+        txtNumber.setName("txtNumber")
+        txtNumber.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtNumber, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtNumber, 48, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtNumber)
+
+        lblName.setName("lblName")
+        lblName.setText("Name")
+        lblName.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblName, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblName, 90, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblName)
+
+        txtName.setName("txtName")
+        txtName.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtName, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtName, 88, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtName)
+
+        lblContact.setName("lblContact")
+        lblContact.setText("Contact")
+        lblContact.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblContact, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblContact, 130, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblContact)
+
+        txtContact.setName("txtContact")
+        txtContact.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtContact, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtContact, 128, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtContact)
+
+        lblStreet.setName("lblStreet")
+        lblStreet.setText("Street")
+        lblStreet.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblStreet, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblStreet, 170, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblStreet)
+
+        txtStreet.setName("txtStreet")
+        txtStreet.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtStreet, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtStreet, 168, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtStreet)
+
+        lblPostCode.setName("lblPostCode")
+        lblPostCode.setText("Postcode")
+        lblPostCode.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblPostCode, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblPostCode, 210, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblPostCode)
+
+        txtPostCode.setName("txtPostCode")
+        txtPostCode.setPreferredSize(New Dimension(120, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtPostCode, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtPostCode, 208, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtPostCode)
+
+        lblCity.setName("lblCity")
+        lblCity.setText("City")
+        lblCity.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblCity, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblCity, 250, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblCity)
+
+        txtCity.setName("txtCity")
+        txtCity.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtCity, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtCity, 248, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtCity)
+
+        lblCountry.setName("lblCountry")
+        lblCountry.setText("Country")
+        lblCountry.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblCountry, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblCountry, 290, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblCountry)
+
+        txtCountry.setName("txtCountry")
+        txtCountry.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtCountry, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtCountry, 288, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtCountry)
+
+        lblEMail.setName("lblEMail")
+        lblEMail.setText("E-Mail")
+        lblEMail.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblEMail, 520, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblEMail, 50, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblEMail)
+
+        txtEMail.setName("txtEMail")
+        txtEMail.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtEMail, 660, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtEMail, 48, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtEMail)
+
+        lblPhone.setName("lblPhone")
+        lblPhone.setText("Phone")
+        lblPhone.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblPhone, 520, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblPhone, 90, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblPhone)
+
+        txtPhone.setName("txtPhone")
+        txtPhone.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtPhone, 660, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtPhone, 88, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtPhone)
+
+        lblVatId.setName("lblVatId")
+        lblVatId.setText("VAT ID")
+        lblVatId.setPreferredSize(New Dimension(130, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblVatId, 520, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblVatId, 130, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblVatId)
+
+        txtVatId.setName("txtVatId")
+        txtVatId.setPreferredSize(New Dimension(320, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtVatId, 660, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtVatId, 128, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtVatId)
+
+        lblNote.setName("lblNote")
+        lblNote.setText("Note")
+        lblNote.setPreferredSize(New Dimension(150, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblNote, 520, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblNote, 170, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblNote)
+
+        txaNote.setName("txaNote")
+        txaNote.setLineWrap(True)
+        txaNote.setWrapStyleWord(True)
+        txaNote.setPreferredSize(New Dimension(320, 152))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txaNote, 660, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txaNote, 168, SpringLayout.NORTH, rootPane)
+        rootPane.add(txaNote)
+
+        btnSave.setName("btnSave")
+        btnSave.setText("Save")
+        btnSave.addActionListener(AddressOf OnSave)
+        btnSave.setPreferredSize(New Dimension(160, 32))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnSave, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSave, 356, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnSave)
+
+        btnCancel.setName("btnCancel")
+        btnCancel.setText("Cancel")
+        btnCancel.addActionListener(AddressOf OnCancel)
+        btnCancel.setPreferredSize(New Dimension(160, 32))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnCancel, 310, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnCancel, 356, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnCancel)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setPreferredSize(New Dimension(700, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHint, 140, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHint, 402, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblHint)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class

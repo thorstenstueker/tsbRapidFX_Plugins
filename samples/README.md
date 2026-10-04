@@ -23,6 +23,31 @@ So the forms are written by the designer's own generator now, the same path *App
 is one sentence long and the sample is the same length. An earlier version had four ideas in it and
 taught the reader a customer file instead of a page change.
 
+## And one real application, three times
+
+The question the small samples cannot answer is whether the tool carries something real. So the
+same business application is here as well — customers, articles, quotations, delivery notes and
+invoices in a SQLite database:
+
+| | |
+|---|---|
+| [`erp-desktop/`](erp-desktop/) | 23 files, 8 designer forms, one `JFrame` |
+| [`erp-web/`](erp-web/) | 17 files, 8 designer forms, a server and a port |
+| [`erp-mobile/`](erp-mobile/) | 19 files, 7 designer forms, compiled ahead of time for both phones |
+
+**How much is shared is measured, not claimed.** Desktop and web have the same data layer *byte
+for byte* — `Article`, `ArticleFile`, `CustomerFile`, `DocumentFile`, `Document`, `Util` are the
+same files. The phone is close: the records differ by two lines, the file classes by ten or twelve,
+and all of that for one cause — iOS's built-in SQLite driver declines JDBC's generated keys, so the
+phone asks `last_insert_rowid()` instead.
+
+**Which files are designer forms, and which are not.** The ones ending in `Form`, plus
+`MainWindow`. `Customer`, `Article`, `Database`, `Util`, `Main` are **not** forms and are not meant
+to be — a customer record has no screen. Worth saying because mistaking the second group for the
+first makes it look as though the designer could not open the application. It can: every form
+round-trips through the designer unchanged, which `tools/CheckForms.java` in the two desktop
+projects checks from a terminal.
+
 They are kept apart from the documentation on purpose: a snippet in a manual rots quietly, and a
 project that is compiled on every build does not.
 

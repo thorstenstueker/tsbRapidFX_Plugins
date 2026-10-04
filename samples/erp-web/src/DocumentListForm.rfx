@@ -1,0 +1,336 @@
+' The document list - the same screen for quotations, delivery notes and invoices.
+'
+' Which kind is meant right now sits in Main.DocumentKind. Drawing three nearly identical forms
+' would have been the obvious answer and the wrong one: a change to a column width would then be
+' three changes, and the third one gets forgotten.
+'
+' What differs is two headings and whether the two carry-over buttons are visible. Both live in
+' SetLabels().
+Imports java.awt
+Imports java.awt.event
+Imports java.util
+Imports javax.swing
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+
+Public Class DocumentListForm
+
+    Private hits As ArrayList = New ArrayList()
+
+    Public Sub New()
+        InitDesignerComponents()
+        SetLabels()
+        txtSearch.Text = Util.Text(Main.DocumentSearch)
+        Fill()
+    End Sub
+
+    ' What this screen currently is.
+    Private Sub SetLabels()
+        Dim kind As String = Main.CurrentDocumentKind()
+        lblTitle.Text = Plural(kind)
+
+        ' An invoice becomes nothing further; a delivery note becomes only an invoice.
+        btnToDeliveryNote.setVisible((kind = Document.QUOTATION))
+        btnToInvoice.setVisible((kind <> Document.INVOICE))
+    End Sub
+
+    Private Function Plural(kind As String) As String
+        Select Case kind
+            Case Document.QUOTATION
+                Return "Quotations"
+            Case Document.DELIVERYNOTE
+                Return "Delivery notes"
+            Case Document.INVOICE
+                Return "Invoices"
+        End Select
+        Return "Documents"
+    End Function
+
+    Private Sub Fill()
+        hits = DocumentFile.Search(Main.CurrentDocumentKind(), txtSearch.Text)
+
+        tblDocuments.Clear()
+        Dim entry As Object
+        For Each entry In hits
+            Dim d As Document = CType(entry, Document)
+            tblDocuments.AddRow(d.Number, Util.DateShown(d.DateIso), d.CustomerName, _
+                                d.Subject, d.LineCount(), Util.Money(d.Net()), _
+                                Util.Money(d.Gross()), d.Status)
+        Next entry
+        tblDocuments.Reload()
+
+        SelectRow(Main.DocumentRow)
+        lblCount.Text = hits.size() + " " + Plural(Main.CurrentDocumentKind())
+    End Sub
+
+    Private Sub SelectRow(row As Integer)
+        If row >= 0 AndAlso row < hits.size() Then
+            tblDocuments.Table().setRowSelectionInterval(row, row)
+        End If
+    End Sub
+
+    Private Function Chosen() As Document
+        Dim row As Integer = tblDocuments.Table().getSelectedRow()
+        If row < 0 OrElse row >= hits.size() Then
+            lblHint.Text = "Please select a row first."
+            Return Nothing
+        End If
+        Main.DocumentRow = row
+        lblHint.Text = ""
+        Return CType(hits.get(row), Document)
+    End Function
+
+    ' --- the buttons ---------------------------------------------------------------------
+
+    Private Sub OnSearch(e As ActionEvent)
+        Main.DocumentSearch = txtSearch.Text
+        Main.DocumentRow = -1
+        Fill()
+    End Sub
+
+    Private Sub OnAll(e As ActionEvent)
+        txtSearch.Text = ""
+        Main.DocumentSearch = ""
+        Main.DocumentRow = -1
+        Fill()
+    End Sub
+
+    ' A new document comes into being here and not in the database. It lies in the session as a
+    ' draft until somebody saves it - which is why an accidental "New" costs nothing.
+    Private Sub OnNew(e As ActionEvent)
+        Dim kind As String = Main.CurrentDocumentKind()
+        Dim fresh As Document = New Document()
+        fresh.Kind = kind
+        fresh.Number = DocumentFile.NextNumber(kind)
+
+        Main.Draft = fresh
+        Main.DocumentId = 0
+        Main.DocumentSearch = txtSearch.Text
+        Main.Show("documentsheet")
+    End Sub
+
+    Private Sub OnOpen(e As ActionEvent)
+        Dim d As Document = Chosen()
+        If d Is Nothing Then
+            Exit Sub
+        End If
+        Main.Draft = DocumentFile.Load(d.Id)
+        Main.DocumentId = d.Id
+        Main.DocumentSearch = txtSearch.Text
+        Main.Show("documentsheet")
+    End Sub
+
+    Private Sub OnDelete(e As ActionEvent)
+        Dim d As Document = Chosen()
+        If d Is Nothing Then
+            Exit Sub
+        End If
+        Dim answer As Integer = tsbWebOptionPane.showConfirmDialog(GetRootPane(), _
+                "Really delete " + d.Kind + " " + d.Number + "?", "Delete")
+        If answer <> tsbWebOptionPane.YES_OPTION Then
+            Exit Sub
+        End If
+
+        DocumentFile.Delete(d.Id)
+        Main.DocumentRow = -1
+        Fill()
+        lblHint.Text = d.Kind + " " + d.Number + " deleted."
+    End Sub
+
+    Private Sub OnToDeliveryNote(e As ActionEvent)
+        Convert(Document.DELIVERYNOTE)
+    End Sub
+
+    Private Sub OnToInvoice(e As ActionEvent)
+        Convert(Document.INVOICE)
+    End Sub
+
+    ' CarryOver copies head and lines and issues a new number. The new document is then a draft
+    ' like any other - it reaches the database only when somebody presses Save on the document
+    ' sheet.
+    Private Sub Convert(target As String)
+        Dim source As Document = Chosen()
+        If source Is Nothing Then
+            Exit Sub
+        End If
+
+        Dim full As Document = DocumentFile.Load(source.Id)
+        Dim fresh As Document = DocumentFile.CarryOver(full, target)
+
+        Main.Draft = fresh
+        Main.DocumentId = 0
+        Main.DocumentKind = target
+        Main.DocumentRow = -1
+        Main.ShowWith("documentsheet", _
+                source.Kind + " " + source.Number + " carried over as " + target + " " _
+                + fresh.Number + ". Not saved yet.")
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                            TSB RAPIDFX WEB LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=DocumentListForm root=AnchorPanel ziel=WEB platform=CUSTOM w=1132 h=590 showIn=false theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblTitle parent=rootPane L=0 T=0 W=520 H=28
+    Private lblTitle As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtSearch parent=rootPane L=0 T=40 W=360 H=28
+    Private txtSearch As JTextField = New JTextField()
+
+    ' @tsbswx Button btnSearch parent=rootPane L=370 T=40 W=110 H=28
+    Private btnSearch As JButton = New JButton()
+
+    ' @tsbswx Button btnAll parent=rootPane L=488 T=40 W=110 H=28
+    Private btnAll As JButton = New JButton()
+
+    ' @tsbswx Button btnNew parent=rootPane T=40 R=244 W=110 H=28
+    Private btnNew As JButton = New JButton()
+
+    ' @tsbswx Button btnOpen parent=rootPane T=40 R=126 W=110 H=28
+    Private btnOpen As JButton = New JButton()
+
+    ' @tsbswx Button btnDelete parent=rootPane T=40 R=0 W=118 H=28
+    Private btnDelete As JButton = New JButton()
+
+    ' @tsbswx Button btnToDeliveryNote parent=rootPane T=78 R=198 W=200 H=28
+    Private btnToDeliveryNote As JButton = New JButton()
+
+    ' @tsbswx Button btnToInvoice parent=rootPane T=78 R=0 W=190 H=28
+    Private btnToInvoice As JButton = New JButton()
+
+    ' @tsbswx Label lblCount parent=rootPane L=0 T=80 W=300 H=22
+    Private lblCount As JLabel = New JLabel()
+
+    ' @tsbswx Label lblHint parent=rootPane L=310 T=80 W=410 H=22
+    Private lblHint As JLabel = New JLabel()
+
+    ' @tsbswx SmartTable tblDocuments parent=rootPane L=0 T=118 R=0 B=0 W=1132 H=472
+    Private tblDocuments As tsbSmartTable = New tsbSmartTable()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1132, 590))
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setFont(New Font("SansSerif", Font.BOLD, 18))
+        lblTitle.setText("Quotations")
+        lblTitle.setPreferredSize(New Dimension(520, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblTitle, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblTitle, 0, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblTitle)
+
+        txtSearch.setName("txtSearch")
+        txtSearch.setToolTipText("Searches: Number, subject or customer")
+        txtSearch.addActionListener(AddressOf OnSearch)
+        txtSearch.setPreferredSize(New Dimension(360, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtSearch, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtSearch, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtSearch)
+
+        btnSearch.setName("btnSearch")
+        btnSearch.setText("Search")
+        btnSearch.addActionListener(AddressOf OnSearch)
+        btnSearch.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnSearch, 370, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSearch, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnSearch)
+
+        btnAll.setName("btnAll")
+        btnAll.setText("All")
+        btnAll.addActionListener(AddressOf OnAll)
+        btnAll.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnAll, 488, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnAll, 40, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnAll)
+
+        btnNew.setName("btnNew")
+        btnNew.setText("New")
+        btnNew.addActionListener(AddressOf OnNew)
+        btnNew.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnNew, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnNew, -244, SpringLayout.EAST, rootPane)
+        rootPane.add(btnNew)
+
+        btnOpen.setName("btnOpen")
+        btnOpen.setText("Open")
+        btnOpen.addActionListener(AddressOf OnOpen)
+        btnOpen.setPreferredSize(New Dimension(110, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnOpen, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnOpen, -126, SpringLayout.EAST, rootPane)
+        rootPane.add(btnOpen)
+
+        btnDelete.setName("btnDelete")
+        btnDelete.setText("Delete")
+        btnDelete.addActionListener(AddressOf OnDelete)
+        btnDelete.setPreferredSize(New Dimension(118, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnDelete, 40, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnDelete, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(btnDelete)
+
+        btnToDeliveryNote.setName("btnToDeliveryNote")
+        btnToDeliveryNote.setText("Convert to delivery note")
+        btnToDeliveryNote.addActionListener(AddressOf OnToDeliveryNote)
+        btnToDeliveryNote.setPreferredSize(New Dimension(200, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnToDeliveryNote, 78, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnToDeliveryNote, -198, SpringLayout.EAST, rootPane)
+        rootPane.add(btnToDeliveryNote)
+
+        btnToInvoice.setName("btnToInvoice")
+        btnToInvoice.setText("Convert to invoice")
+        btnToInvoice.addActionListener(AddressOf OnToInvoice)
+        btnToInvoice.setPreferredSize(New Dimension(190, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnToInvoice, 78, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnToInvoice, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(btnToInvoice)
+
+        lblCount.setName("lblCount")
+        lblCount.setText("")
+        lblCount.setPreferredSize(New Dimension(300, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblCount, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblCount, 80, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblCount)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setPreferredSize(New Dimension(410, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHint, 310, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHint, 80, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblHint)
+
+        tblDocuments.setName("tblDocuments")
+        tblDocuments.setColumns("Number, Date, Customer, Subject, Lines, Net, Gross, Status")
+        tblDocuments.setColumnWidths("12%, 9%, 22%, 22%, 8%, 9%, 9%, 9%")
+        tblDocuments.setRowHeight(24)
+        rootPaneLayout.putConstraint(SpringLayout.WEST, tblDocuments, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, tblDocuments, 118, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, tblDocuments, 0, SpringLayout.EAST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.SOUTH, tblDocuments, 0, SpringLayout.SOUTH, rootPane)
+        rootPane.add(tblDocuments)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class

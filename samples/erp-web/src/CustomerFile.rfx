@@ -1,0 +1,178 @@
+' The customer file: read, search, save, delete.
+'
+' Everything that is SQL is here, and nothing else knows about it. A form calls
+' CustomerFile.Search("meyer") and gets customers back; that there is a LIKE underneath is none
+' of its business. That is why the search can become a full-text index one day without a single
+' form changing.
+'
+' Every function opens its own connection and closes it again. See Database.
+Imports java.sql
+Imports java.util
+
+Module CustomerFile
+
+    ' Every customer, ordered by number.
+    Public Function All() As ArrayList
+        Return Search("")
+    End Function
+
+    ' Searches number, name, contact, city and e-mail at once.
+    '
+    ' An empty search text yields everything. That is the right answer rather than laziness: a
+    ' list that shows nothing until something is typed looks like an empty database.
+    Public Function Search(text As String) As ArrayList
+        Dim hits As ArrayList = New ArrayList()
+        Dim pattern As String = "%" + LCase(Trim(Util.Text(text))) + "%"
+
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT id, number, name, contact, street, postcode, city, country, " _
+                    + "email, phone, vatid, note FROM customer " _
+                    + "WHERE LOWER(number) LIKE ? OR LOWER(name) LIKE ? " _
+                    + "   OR LOWER(IFNULL(contact, '')) LIKE ? " _
+                    + "   OR LOWER(IFNULL(city, '')) LIKE ? " _
+                    + "   OR LOWER(IFNULL(email, '')) LIKE ? " _
+                    + "ORDER BY number")
+            Dim i As Integer
+            For i = 1 To 5
+                b.setString(i, pattern)
+            Next i
+            Dim r As ResultSet = b.executeQuery()
+            Do While r.next()
+                hits.add(ReadRow(r))
+            Loop
+            r.close()
+            b.close()
+        End Using
+        Return hits
+    End Function
+
+    ' One customer, or Nothing when there is no such one.
+    Public Function Load(id As Integer) As Customer
+        Dim found As Customer = Nothing
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT id, number, name, contact, street, postcode, city, country, " _
+                    + "email, phone, vatid, note FROM customer WHERE id = ?")
+            b.setInt(1, id)
+            Dim r As ResultSet = b.executeQuery()
+            If r.next() Then
+                found = ReadRow(r)
+            End If
+            r.close()
+            b.close()
+        End Using
+        Return found
+    End Function
+
+    ' Inserts or updates, depending on whether the customer already has an id. Returns the id.
+    Public Function Save(k As Customer) As Integer
+        Using c As Connection = Database.Connect()
+            If k.Id = 0 Then
+                Dim b As PreparedStatement = c.prepareStatement( _
+                        "INSERT INTO customer (number, name, contact, street, postcode, city, " _
+                        + "country, email, phone, vatid, note) " _
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", _
+                        Statement.RETURN_GENERATED_KEYS)
+                BindRow(b, k)
+                b.executeUpdate()
+                Dim s As ResultSet = b.getGeneratedKeys()
+                If s.next() Then
+                    k.Id = s.getInt(1)
+                End If
+                s.close()
+                b.close()
+            Else
+                Dim b As PreparedStatement = c.prepareStatement( _
+                        "UPDATE customer SET number = ?, name = ?, contact = ?, " _
+                        + "street = ?, postcode = ?, city = ?, country = ?, email = ?, phone = ?, " _
+                        + "vatid = ?, note = ? WHERE id = ?")
+                BindRow(b, k)
+                b.setInt(12, k.Id)
+                b.executeUpdate()
+                b.close()
+            End If
+        End Using
+        Return k.Id
+    End Function
+
+    ' Deletes - unless the customer appears on a document. That invoice would then have no
+    ' recipient, and an invoice with no recipient is worse than one customer too many on file.
+    Public Function Delete(id As Integer) As String
+        Using c As Connection = Database.Connect()
+            Dim p As PreparedStatement = c.prepareStatement( _
+                    "SELECT COUNT(*) FROM document WHERE customer_id = ?")
+            p.setInt(1, id)
+            Dim r As ResultSet = p.executeQuery()
+            Dim documents As Integer = 0
+            If r.next() Then
+                documents = r.getInt(1)
+            End If
+            r.close()
+            p.close()
+
+            If documents > 0 Then
+                Return "The customer appears on " + documents + " documents and cannot be deleted."
+            End If
+
+            Dim b As PreparedStatement = c.prepareStatement("DELETE FROM customer WHERE id = ?")
+            b.setInt(1, id)
+            b.executeUpdate()
+            b.close()
+        End Using
+        Return ""
+    End Function
+
+    ' The next free customer number: K-1001, K-1002, ...
+    Public Function NextNumber() As String
+        Dim highest As Integer = 1000
+        Using c As Connection = Database.Connect()
+            Dim s As Statement = c.createStatement()
+            Dim r As ResultSet = s.executeQuery("SELECT number FROM customer")
+            Do While r.next()
+                Dim number As String = Util.Text(r.getString(1))
+                Dim digits As Integer = CInt(Val(Replace(number, "K-", "")))
+                If digits > highest Then
+                    highest = digits
+                End If
+            Loop
+            r.close()
+            s.close()
+        End Using
+        Return "K-" + (highest + 1)
+    End Function
+
+    ' --- inside -----------------------------------------------------------------------
+
+    Private Function ReadRow(r As ResultSet) As Customer
+        Dim k As Customer = New Customer()
+        k.Id = r.getInt(1)
+        k.Number = Util.Text(r.getString(2))
+        k.Name = Util.Text(r.getString(3))
+        k.Contact = Util.Text(r.getString(4))
+        k.Street = Util.Text(r.getString(5))
+        k.PostCode = Util.Text(r.getString(6))
+        k.City = Util.Text(r.getString(7))
+        k.Country = Util.Text(r.getString(8))
+        k.EMail = Util.Text(r.getString(9))
+        k.Phone = Util.Text(r.getString(10))
+        k.VatId = Util.Text(r.getString(11))
+        k.Note = Util.Text(r.getString(12))
+        Return k
+    End Function
+
+    Private Sub BindRow(b As PreparedStatement, k As Customer)
+        b.setString(1, k.Number)
+        b.setString(2, k.Name)
+        b.setString(3, k.Contact)
+        b.setString(4, k.Street)
+        b.setString(5, k.PostCode)
+        b.setString(6, k.City)
+        b.setString(7, k.Country)
+        b.setString(8, k.EMail)
+        b.setString(9, k.Phone)
+        b.setString(10, k.VatId)
+        b.setString(11, k.Note)
+    End Sub
+
+End Module

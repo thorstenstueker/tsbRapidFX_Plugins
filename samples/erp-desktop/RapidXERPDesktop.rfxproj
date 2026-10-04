@@ -1,0 +1,19 @@
+' RapidX ERP Desktop - the same business application as a window on your own computer.
+'
+' This project builds without an IDE too:
+'     rfxc --project RapidXERPDesktop.rfxproj
+'     java -jar build/RapidXERPDesktop.jar
+'
+' Name, Sources and Library are what rfxc looks for. The German spellings - Quellen, Bibliothek -
+' are still read, so a project file written before the change goes on building.
+'
+' There is no Type line. The web sister project carries "Type = WEB" for the reader's benefit;
+' rfxc ignores it either way, and a desktop program is what you get when nothing says otherwise.
+
+Name    = RapidXERPDesktop
+Sources = src
+
+Library = lib/flatlaf-3.7.2.jar
+Library = lib/flatlaf-intellij-themes-3.7.2.jar
+Library = lib/tsbswing-1.0.jar
+Library = lib/sqlite-jdbc-3.53.1.0.jar

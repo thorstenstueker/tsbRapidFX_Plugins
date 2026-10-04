@@ -1,0 +1,269 @@
+' Quotations, delivery notes and invoices - one table, three kinds.
+'
+' Saving writes the head and then writes the lines afresh. Not clever, but the only method that
+' is right without having to think: a deleted row, an inserted row and a changed quantity are
+' otherwise three cases, and whoever forgets the third finds out from an invoice that does not
+' add up. A document has ten lines, not ten thousand.
+Imports java.sql
+Imports java.util
+
+Module DocumentFile
+
+    ' Every document of one kind. The search text matches number, subject and customer name.
+    Public Function Search(kind As String, text As String) As ArrayList
+        Dim hits As ArrayList = New ArrayList()
+        Dim pattern As String = "%" + LCase(Trim(Util.Text(text))) + "%"
+
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT d.id, d.kind, d.number, d.customer_id, d.docdate, d.status, " _
+                    + "d.subject, d.source_id, IFNULL(k.name, '') " _
+                    + "FROM document d LEFT JOIN customer k ON k.id = d.customer_id " _
+                    + "WHERE d.kind = ? AND (LOWER(d.number) LIKE ? " _
+                    + "   OR LOWER(IFNULL(d.subject, '')) LIKE ? " _
+                    + "   OR LOWER(IFNULL(k.name, '')) LIKE ?) " _
+                    + "ORDER BY d.docdate DESC, d.number DESC")
+            b.setString(1, kind)
+            Dim i As Integer
+            For i = 2 To 4
+                b.setString(i, pattern)
+            Next i
+            Dim r As ResultSet = b.executeQuery()
+            Do While r.next()
+                hits.add(Head(r))
+            Loop
+            r.close()
+            b.close()
+        End Using
+
+        ' Their lines as well, so that the list can show totals.
+        Dim entry As Object
+        For Each entry In hits
+            Dim doc As Document = CType(entry, Document)
+            doc.Lines = LinesOf(doc.Id)
+        Next entry
+        Return hits
+    End Function
+
+    ' One complete document with its lines, or Nothing.
+    Public Function Load(id As Integer) As Document
+        Dim found As Document = Nothing
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT d.id, d.kind, d.number, d.customer_id, d.docdate, d.status, " _
+                    + "d.subject, d.source_id, IFNULL(k.name, '') " _
+                    + "FROM document d LEFT JOIN customer k ON k.id = d.customer_id WHERE d.id = ?")
+            b.setInt(1, id)
+            Dim r As ResultSet = b.executeQuery()
+            If r.next() Then
+                found = Head(r)
+            End If
+            r.close()
+            b.close()
+        End Using
+        If found IsNot Nothing Then
+            found.Lines = LinesOf(found.Id)
+        End If
+        Return found
+    End Function
+
+    ' Head and lines. The lines are deleted and written again.
+    Public Function Save(doc As Document) As Integer
+        Using c As Connection = Database.Connect()
+            c.setAutoCommit(False)
+            Try
+                If doc.Id = 0 Then
+                    Dim b As PreparedStatement = c.prepareStatement( _
+                            "INSERT INTO document (kind, number, customer_id, docdate, status, " _
+                            + "subject, source_id) VALUES (?, ?, ?, ?, ?, ?, ?)", _
+                            Statement.RETURN_GENERATED_KEYS)
+                    BindHead(b, doc)
+                    b.executeUpdate()
+                    Dim s As ResultSet = b.getGeneratedKeys()
+                    If s.next() Then
+                        doc.Id = s.getInt(1)
+                    End If
+                    s.close()
+                    b.close()
+                Else
+                    Dim b As PreparedStatement = c.prepareStatement( _
+                            "UPDATE document SET kind = ?, number = ?, customer_id = ?, docdate = ?, " _
+                            + "status = ?, subject = ?, source_id = ? WHERE id = ?")
+                    BindHead(b, doc)
+                    b.setInt(8, doc.Id)
+                    b.executeUpdate()
+                    b.close()
+                End If
+
+                Dim wipe As PreparedStatement = c.prepareStatement( _
+                        "DELETE FROM documentline WHERE document_id = ?")
+                wipe.setInt(1, doc.Id)
+                wipe.executeUpdate()
+                wipe.close()
+
+                Dim ins As PreparedStatement = c.prepareStatement( _
+                        "INSERT INTO documentline (document_id, seq, article_id, number, " _
+                        + "name, quantity, unit, unitprice, vat) " _
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                Dim seq As Integer = 0
+                Dim entry As Object
+                For Each entry In doc.Lines
+                    Dim p As DocumentLine = CType(entry, DocumentLine)
+                    ins.setInt(1, doc.Id)
+                    ins.setInt(2, seq)
+                    ins.setInt(3, p.ArticleId)
+                    ins.setString(4, p.Number)
+                    ins.setString(5, p.Name)
+                    ins.setDouble(6, p.Quantity)
+                    ins.setString(7, p.Unit)
+                    ins.setDouble(8, p.UnitPrice)
+                    ins.setDouble(9, p.VatRate)
+                    ins.executeUpdate()
+                    seq = seq + 1
+                Next entry
+                ins.close()
+
+                c.commit()
+            Catch e As java.lang.Exception
+                ' A half-written document would be worse than none at all.
+                c.rollback()
+                Throw
+            End Try
+        End Using
+        Return doc.Id
+    End Function
+
+    Public Sub Delete(id As Integer)
+        Using c As Connection = Database.Connect()
+            Dim p As PreparedStatement = c.prepareStatement( _
+                    "DELETE FROM documentline WHERE document_id = ?")
+            p.setInt(1, id)
+            p.executeUpdate()
+            p.close()
+
+            Dim b As PreparedStatement = c.prepareStatement("DELETE FROM document WHERE id = ?")
+            b.setInt(1, id)
+            b.executeUpdate()
+            b.close()
+        End Using
+    End Sub
+
+    ' QU-2026-0001, DN-2026-0001, IN-2026-0001 - kind, year, running number.
+    Public Function NextNumber(kind As String) As String
+        Dim year As String = Left(Util.TodayIso(), 4)
+        Dim prefix As String = ShortCode(kind) + "-" + year + "-"
+        Dim highest As Integer = 0
+
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT number FROM document WHERE kind = ? AND number LIKE ?")
+            b.setString(1, kind)
+            b.setString(2, prefix + "%")
+            Dim r As ResultSet = b.executeQuery()
+            Do While r.next()
+                Dim running As Integer = CInt(Val(Right(Util.Text(r.getString(1)), 4)))
+                If running > highest Then
+                    highest = running
+                End If
+            Loop
+            r.close()
+            b.close()
+        End Using
+        Return prefix + Right("000" + (highest + 1), 4)
+    End Function
+
+    Public Function ShortCode(kind As String) As String
+        Select Case kind
+            Case Document.QUOTATION
+                Return "QU"
+            Case Document.DELIVERYNOTE
+                Return "DN"
+            Case Document.INVOICE
+                Return "IN"
+        End Select
+        Return "DO"
+    End Function
+
+    ' One document becomes the next: a quotation into a delivery note, a quotation or a
+    ' delivery note into an invoice. Head and lines are copied, a new number is issued, and the
+    ' origin stays behind in SourceId - otherwise there would be no seeing later where the
+    ' invoice came from.
+    Public Function CarryOver(source As Document, kind As String) As Document
+        Dim fresh As Document = New Document()
+        fresh.Kind = kind
+        fresh.Number = NextNumber(kind)
+        fresh.CustomerId = source.CustomerId
+        fresh.CustomerName = source.CustomerName
+        fresh.DateIso = Util.TodayIso()
+        fresh.Status = "open"
+        fresh.Subject = source.Subject
+        fresh.SourceId = source.Id
+
+        Dim entry As Object
+        For Each entry In source.Lines
+            Dim old As DocumentLine = CType(entry, DocumentLine)
+            Dim p As DocumentLine = New DocumentLine()
+            p.ArticleId = old.ArticleId
+            p.Number = old.Number
+            p.Name = old.Name
+            p.Quantity = old.Quantity
+            p.Unit = old.Unit
+            p.UnitPrice = old.UnitPrice
+            p.VatRate = old.VatRate
+            fresh.AddLine(p)
+        Next entry
+        Return fresh
+    End Function
+
+    ' --- inside -----------------------------------------------------------------------
+
+    Private Function Head(r As ResultSet) As Document
+        Dim d As Document = New Document()
+        d.Id = r.getInt(1)
+        d.Kind = Util.Text(r.getString(2))
+        d.Number = Util.Text(r.getString(3))
+        d.CustomerId = r.getInt(4)
+        d.DateIso = Util.Text(r.getString(5))
+        d.Status = Util.Text(r.getString(6))
+        d.Subject = Util.Text(r.getString(7))
+        d.SourceId = r.getInt(8)
+        d.CustomerName = Util.Text(r.getString(9))
+        Return d
+    End Function
+
+    Private Sub BindHead(b As PreparedStatement, doc As Document)
+        b.setString(1, doc.Kind)
+        b.setString(2, doc.Number)
+        b.setInt(3, doc.CustomerId)
+        b.setString(4, doc.DateIso)
+        b.setString(5, doc.Status)
+        b.setString(6, doc.Subject)
+        b.setInt(7, doc.SourceId)
+    End Sub
+
+    Private Function LinesOf(documentId As Integer) As ArrayList
+        Dim list As ArrayList = New ArrayList()
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT article_id, number, name, quantity, unit, unitprice, " _
+                    + "vat FROM documentline WHERE document_id = ? ORDER BY seq")
+            b.setInt(1, documentId)
+            Dim r As ResultSet = b.executeQuery()
+            Do While r.next()
+                Dim p As DocumentLine = New DocumentLine()
+                p.ArticleId = r.getInt(1)
+                p.Number = Util.Text(r.getString(2))
+                p.Name = Util.Text(r.getString(3))
+                p.Quantity = r.getDouble(4)
+                p.Unit = Util.Text(r.getString(5))
+                p.UnitPrice = r.getDouble(6)
+                p.VatRate = r.getDouble(7)
+                list.add(p)
+            Loop
+            r.close()
+            b.close()
+        End Using
+        Return list
+    End Function
+
+End Module

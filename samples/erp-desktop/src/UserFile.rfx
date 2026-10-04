@@ -1,0 +1,55 @@
+' Signing in: the one query the web version did not have to write.
+'
+' There, tsbWebJdbcAuth was handed two SELECTs and did the rest - hashing, checking, and hanging
+' the answer on the session. A desktop program has no session and no such helper, so it is
+' written out here, and it comes to eleven lines of SQL.
+Imports java.sql
+
+Module UserFile
+
+    ' The user, or Nothing when the login does not exist or the password does not fit.
+    '
+    ' One answer for both failures, deliberately. Telling somebody "that user exists, but the
+    ' password is wrong" tells them something they did not know yet.
+    Public Function SignIn(login As String, password As String) As User
+        Dim who As User = Nothing
+
+        Using c As Connection = Database.Connect()
+            Dim b As PreparedStatement = c.prepareStatement( _
+                    "SELECT login, displayname, password FROM users WHERE login = ?")
+            b.setString(1, Trim(Util.Text(login)))
+            Dim r As ResultSet = b.executeQuery()
+            If r.next() Then
+                If Passwords.Matches(password, r.getString(3)) Then
+                    who = New User()
+                    who.Login = Util.Text(r.getString(1))
+                    who.DisplayName = Util.Text(r.getString(2))
+                End If
+            End If
+            r.close()
+            b.close()
+
+            If who IsNot Nothing Then
+                who.Role = RoleOf(c, who.Login)
+            End If
+        End Using
+        Return who
+    End Function
+
+    ' The first role of that login, or "" for somebody with none. The table allows several rows
+    ' per user; nothing in this program needs more than the first one yet.
+    Private Function RoleOf(c As Connection, login As String) As String
+        Dim role As String = ""
+        Dim b As PreparedStatement = c.prepareStatement( _
+                "SELECT role FROM userrole WHERE login = ? ORDER BY role")
+        b.setString(1, login)
+        Dim r As ResultSet = b.executeQuery()
+        If r.next() Then
+            role = Util.Text(r.getString(1))
+        End If
+        r.close()
+        b.close()
+        Return role
+    End Function
+
+End Module

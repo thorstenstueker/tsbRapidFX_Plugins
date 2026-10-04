@@ -1,0 +1,139 @@
+' Signing in — the first screen the program shows.
+'
+' UserFile.SignIn and Passwords.Matches are the desktop's, unchanged. What happens here is
+' reading two fields and going somewhere, which is all a sign-in screen ever does.
+'
+' No password is stored and none is compared as text: Passwords.Matches hashes what was typed
+' with the salt that came out of the database and compares the results byte for byte.
+
+Imports tsb.mobile
+
+Public Class SignInForm
+    Implements Form
+
+    Private Sub OnFormBuilt()
+        ' The database has to exist before anybody can sign in to it. On the very first start
+        ' this is where it is created and filled — Database.Start does nothing the second time.
+        Database.Start()
+
+        txtUser.setText("admin")
+        lblHint.setText("admin / secret, or anna / secret")
+    End Sub
+
+    Private Sub OnSignIn(source As Button)
+        Dim who As User = UserFile.SignIn(txtUser.getText(), txtPassword.getText())
+        If who Is Nothing Then
+            lblHint.setText("Sign-in failed. Please try again.")
+            txtPassword.setText("")
+            Exit Sub
+        End If
+
+        Shell.SignedIn(who)
+        Shell.ShowArticles()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=SignInForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Label lblTitle L=340 T=180 W=440 H=44
+    Private lblTitle As Label = New Label()
+
+    ' @tsbmob Label lblUser L=340 T=40@lblTitle.BOTTOM W=200 H=28
+    Private lblUser As Label = New Label()
+
+    ' @tsbmob TextField txtUser L=340 T=4@lblUser.BOTTOM W=440 H=52
+    Private txtUser As TextField = New TextField()
+
+    ' @tsbmob Label lblPassword L=340 T=20@txtUser.BOTTOM W=200 H=28
+    Private lblPassword As Label = New Label()
+
+    ' @tsbmob TextField txtPassword L=340 T=4@lblPassword.BOTTOM W=440 H=52
+    Private txtPassword As TextField = New TextField()
+
+    ' @tsbmob Button btnSignIn L=340 T=28@txtPassword.BOTTOM W=440 H=56
+    Private btnSignIn As Button = New Button()
+
+    ' @tsbmob Label lblHint L=340 T=20@btnSignIn.BOTTOM W=440 H=28
+    Private lblHint As Label = New Label()
+
+    Public Function build() As Screen
+        schirm.setTitle("RapidX ERP")
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setText("RapidX ERP")
+        lblTitle.setTextSize(30)
+        lblTitle.setBold(True)
+        lblTitle.setSize(440, 44)
+        schirm.add(lblTitle)
+
+        lblUser.setName("lblUser")
+        lblUser.setText("User")
+        lblUser.setSize(200, 28)
+        schirm.add(lblUser)
+
+        txtUser.setName("txtUser")
+        txtUser.setHint("admin")
+        txtUser.setSize(440, 52)
+        schirm.add(txtUser)
+
+        lblPassword.setName("lblPassword")
+        lblPassword.setText("Password")
+        lblPassword.setSize(200, 28)
+        schirm.add(lblPassword)
+
+        txtPassword.setName("txtPassword")
+        txtPassword.setPassword(True)
+        txtPassword.setSize(440, 52)
+        schirm.add(txtPassword)
+
+        btnSignIn.setName("btnSignIn")
+        btnSignIn.setText("Sign in")
+        btnSignIn.onClick(AddressOf OnSignIn)
+        btnSignIn.setSize(440, 56)
+        schirm.add(btnSignIn)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setSize(440, 28)
+        schirm.add(lblHint)
+
+        ' Centred by hand: a fixed left margin on a 1112-wide tablet. The anchor model can
+        ' stretch a widget between two edges but has no "centre me", and one number in one
+        ' place is a smaller thing than a centring rule that every backend would have to answer.
+        schirm.anchor(lblTitle, Edge.LEFT, 340)
+        schirm.anchor(lblTitle, Edge.TOP, 180)
+        schirm.anchor(lblUser, Edge.LEFT, 340)
+        schirm.anchor(lblUser, Edge.TOP, 40, lblTitle, Edge.BOTTOM)
+        schirm.anchor(txtUser, Edge.LEFT, 340)
+        schirm.anchor(txtUser, Edge.TOP, 4, lblUser, Edge.BOTTOM)
+        schirm.anchor(lblPassword, Edge.LEFT, 340)
+        schirm.anchor(lblPassword, Edge.TOP, 20, txtUser, Edge.BOTTOM)
+        schirm.anchor(txtPassword, Edge.LEFT, 340)
+        schirm.anchor(txtPassword, Edge.TOP, 4, lblPassword, Edge.BOTTOM)
+        schirm.anchor(btnSignIn, Edge.LEFT, 340)
+        schirm.anchor(btnSignIn, Edge.TOP, 28, txtPassword, Edge.BOTTOM)
+        schirm.anchor(lblHint, Edge.LEFT, 340)
+        schirm.anchor(lblHint, Edge.TOP, 20, btnSignIn, Edge.BOTTOM)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+End Class

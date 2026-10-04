@@ -1,0 +1,50 @@
+' RapidX ERP Desktop - a small business application in a window of its own.
+'
+' Run it: right-click this file > Run. Sign in with  admin / secret  or  anna / secret.
+'
+' This is the same program as its web sister project, with the server taken out. What that
+' removes is worth naming, because it is most of what a web framework is for:
+'
+'   no session      one person is using this, and what they are doing lives in fields of the
+'                   window they are looking at
+'   no router       changing screen is a method call with an argument, not a string in a session
+'   no rebuild      the window stays; only the panel inside it is swapped
+'
+' What it adds is a menu bar, a theme that can be changed while the program runs, and a window
+' that remembers how big it was.
+Imports javax.swing
+Imports java.awt
+
+Module Main
+
+    Sub Main()
+        ' The look and feel before the first window, and that order matters: UIManager only
+        ' decides what is built from here on, so a component that already exists keeps the look
+        ' it was born with.
+        Look.Setup(Settings.Theme())
+
+        ' Then the database. Doing it the other way round would mean a window on screen while
+        ' the file it needs is still being created.
+        Database.Start()
+        Print "RapidX ERP Desktop - database: " + Database.FilePath()
+
+        ' Everything that touches a window belongs on the event dispatch thread - the one thread
+        ' Swing does all its work on. Sub Main is not that thread, so it hands the job over and
+        ' ends. The program lives on inside the window.
+        SwingUtilities.invokeLater(Sub()
+            Start()
+        End Sub)
+    End Sub
+
+    ' One JFrame for the whole program, and every screen shown inside it.
+    '
+    ' The frame is made here rather than by a form, because both the sign-in screen and the main
+    ' window use it, one after the other. Signing in is not a separate window that appears and
+    ' vanishes; it is the first thing this window shows.
+    Private Sub Start()
+        Dim frame As JFrame = New JFrame()
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+        New SignInForm(frame).Open()
+    End Sub
+
+End Module

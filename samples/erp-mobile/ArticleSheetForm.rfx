@@ -1,0 +1,328 @@
+' One article, to look at and to change.
+'
+' A full screen, not a dialog — the same decision the desktop makes, and on a tablet there is
+' not even a choice: a modal window over a form is a desktop idea.
+'
+' The logic below is the desktop's ArticleSheetForm almost line for line: Fetch, Display,
+' Collect, validate, save, go back. What changed is the widgets and that the shell is a Module
+' rather than a MainWindow instance.
+
+Imports tsb.mobile
+
+Public Class ArticleSheetForm
+    Implements Form
+
+    ' The record being edited. Id = 0 means it does not exist yet.
+    Private art As Article
+
+    ' Which article to show. 0 is "a new one" — the same convention as the desktop, where
+    ' ShowArticleSheet(0) is what the New button calls.
+    Private wanted As Integer = 0
+
+    Public Sub New(id As Integer)
+        wanted = id
+    End Sub
+
+    Private Sub OnFormBuilt()
+        drpArea.setItems(Shell.Areas())
+        drpArea.setSelectedIndex(1)
+
+        art = Fetch(wanted)
+        Display()
+    End Sub
+
+    Private Function Fetch(id As Integer) As Article
+        If id = 0 Then
+            Dim fresh As Article = New Article()
+            fresh.Number = ArticleFile.NextNumber()
+            Return fresh
+        End If
+        Dim existing As Article = ArticleFile.Load(id)
+        If existing Is Nothing Then
+            Return New Article()
+        End If
+        Return existing
+    End Function
+
+    Private Sub Display()
+        If art.Id = 0 Then
+            lblTitle.setText("New article")
+        Else
+            lblTitle.setText("Article " + art.Number)
+        End If
+        txtNumber.setText(art.Number)
+        txtName.setText(Util.Text(art.Name))
+        txtUnit.setText(Util.Text(art.Unit))
+        txtPrice.setText(Util.Money(art.Price))
+        txtVat.setText(Util.QuantityText(art.Vat))
+        txtStock.setText(Util.QuantityText(art.Stock))
+        txaDescription.setText(Util.Text(art.Description))
+        lblHint.setText("")
+    End Sub
+
+    Private Sub Collect()
+        art.Number = Trim(txtNumber.getText())
+        art.Name = Trim(txtName.getText())
+        art.Unit = Trim(txtUnit.getText())
+        art.Price = Util.ToNumber(txtPrice.getText())
+        art.Vat = Util.ToNumber(txtVat.getText())
+        art.Stock = Util.ToNumber(txtStock.getText())
+        art.Description = txaDescription.getText()
+    End Sub
+
+    ' --- what the buttons do ---------------------------------------------------------
+
+    Private Sub OnSave(source As Button)
+        Collect()
+        If art.Number = "" Then
+            lblHint.setText("An article number is required.")
+            Exit Sub
+        End If
+        If art.Name = "" Then
+            lblHint.setText("A name is required.")
+            Exit Sub
+        End If
+
+        ArticleFile.Save(art)
+        Shell.ShowArticles()
+        Shell.Say("Article " + art.Number + " saved.")
+    End Sub
+
+    Private Sub OnCancel(source As Button)
+        Shell.ShowArticles()
+    End Sub
+
+    ' Deleting is refused when the article is on a document — the rule lives in ArticleFile and
+    ' comes back as a sentence, not as a boolean. Showing it is all this has to do.
+    Private Sub OnDelete(source As Button)
+        If art.Id = 0 Then
+            Shell.ShowArticles()
+            Exit Sub
+        End If
+        Dim refused As String = ArticleFile.Delete(art.Id)
+        If refused <> "" Then
+            lblHint.setText(refused)
+            Exit Sub
+        End If
+        Shell.ShowArticles()
+        Shell.Say("Article " + art.Number + " deleted.")
+    End Sub
+
+    ' --- the navigation ----------------------------------------------------------------
+
+    ' Switches area — and ignores its own number.
+    '
+    ' NOT through a building flag, although the desktop does it that way. Android's Spinner
+    ' calls its listener **afterwards**, after the layout — by then the flag is long back to
+    ' False, and the form navigates away from itself. Measured: display() was called twice,
+    ' the second time after the click handler.
+    '
+    ' Comparing against its own index is immune to any ordering, and it also says something
+    ' true: choosing the area you are already in does nothing.
+    Private Sub OnAreaChosen(source As Widget, index As Integer, text As String)
+        If index = 1 Then
+            Exit Sub
+        End If
+        Shell.GoTo(index)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=ArticleSheetForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Dropdown drpArea L=24 T=16 W=260 H=48
+    Private drpArea As Dropdown = New Dropdown()
+
+    ' @tsbmob Label lblTitle L=24 T=16@drpArea.BOTTOM W=500 H=36
+    Private lblTitle As Label = New Label()
+
+    ' @tsbmob Label lblNumber L=24 T=20@lblTitle.BOTTOM W=140 H=28
+    Private lblNumber As Label = New Label()
+
+    ' @tsbmob TextField txtNumber L=24 T=4@lblNumber.BOTTOM W=220 H=48
+    Private txtNumber As TextField = New TextField()
+
+    ' @tsbmob Label lblName L=24@txtNumber.RIGHT T=20@lblTitle.BOTTOM W=140 H=28
+    Private lblName As Label = New Label()
+
+    ' @tsbmob TextField txtName L=24@txtNumber.RIGHT T=4@lblNumber.BOTTOM R=24 W=760 H=48
+    Private txtName As TextField = New TextField()
+
+    ' @tsbmob Label lblUnit L=24 T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblUnit As Label = New Label()
+
+    ' @tsbmob TextField txtUnit L=24 T=4@lblUnit.BOTTOM W=220 H=48
+    Private txtUnit As TextField = New TextField()
+
+    ' @tsbmob Label lblPrice L=24@txtUnit.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblPrice As Label = New Label()
+
+    ' @tsbmob TextField txtPrice L=24@txtUnit.RIGHT T=4@lblUnit.BOTTOM W=220 H=48
+    Private txtPrice As TextField = New TextField()
+
+    ' @tsbmob Label lblVat L=24@txtPrice.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblVat As Label = New Label()
+
+    ' @tsbmob TextField txtVat L=24@txtPrice.RIGHT T=4@lblUnit.BOTTOM W=220 H=48
+    Private txtVat As TextField = New TextField()
+
+    ' @tsbmob Label lblStock L=24@txtVat.RIGHT T=16@txtNumber.BOTTOM W=140 H=28
+    Private lblStock As Label = New Label()
+
+    ' @tsbmob TextField txtStock L=24@txtVat.RIGHT T=4@lblUnit.BOTTOM W=220 H=48
+    Private txtStock As TextField = New TextField()
+
+    ' @tsbmob Label lblDescription L=24 T=16@txtUnit.BOTTOM W=200 H=28
+    Private lblDescription As Label = New Label()
+
+    ' @tsbmob TextArea txaDescription L=24 T=4@lblDescription.BOTTOM R=24 W=1064 H=200
+    Private txaDescription As TextArea = New TextArea()
+
+    ' @tsbmob Button btnSave L=24 T=24@txaDescription.BOTTOM W=180 H=52
+    Private btnSave As Button = New Button()
+
+    ' @tsbmob Button btnCancel L=16@btnSave.RIGHT T=24@txaDescription.BOTTOM W=180 H=52
+    Private btnCancel As Button = New Button()
+
+    ' @tsbmob Button btnDelete L=16@btnCancel.RIGHT T=24@txaDescription.BOTTOM W=180 H=52
+    Private btnDelete As Button = New Button()
+
+    ' @tsbmob Label lblHint L=24 T=16@btnSave.BOTTOM R=24 W=1064 H=28
+    Private lblHint As Label = New Label()
+
+    Public Function build() As Screen
+        schirm.setTitle("Article")
+
+        drpArea.setName("drpArea")
+        drpArea.onSelect(AddressOf OnAreaChosen)
+        drpArea.setSize(260, 48)
+        schirm.add(drpArea)
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setText("Article")
+        lblTitle.setTextSize(26)
+        lblTitle.setBold(True)
+        lblTitle.setSize(500, 36)
+        schirm.add(lblTitle)
+
+        Beschriften(lblNumber, "Number", 140)
+        Feld(txtNumber, 220)
+        Beschriften(lblName, "Name", 140)
+        Feld(txtName, 760)
+        Beschriften(lblUnit, "Unit", 140)
+        Feld(txtUnit, 220)
+        Beschriften(lblPrice, "Price", 140)
+        Feld(txtPrice, 220)
+        Beschriften(lblVat, "VAT %", 140)
+        Feld(txtVat, 220)
+        Beschriften(lblStock, "Stock", 140)
+        Feld(txtStock, 220)
+        Beschriften(lblDescription, "Description", 200)
+
+        txaDescription.setName("txaDescription")
+        txaDescription.setHeight(200)
+        schirm.add(txaDescription)
+
+        MakeButton(btnSave, "Save", AddressOf OnSave)
+        MakeButton(btnCancel, "Cancel", AddressOf OnCancel)
+        MakeButton(btnDelete, "Delete", AddressOf OnDelete)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setHeight(28)
+        schirm.add(lblHint)
+
+        schirm.anchor(drpArea, Edge.LEFT, 24)
+        schirm.anchor(drpArea, Edge.TOP, 16)
+        schirm.anchor(lblTitle, Edge.LEFT, 24)
+        schirm.anchor(lblTitle, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+
+        schirm.anchor(lblNumber, Edge.LEFT, 24)
+        schirm.anchor(lblNumber, Edge.TOP, 20, lblTitle, Edge.BOTTOM)
+        schirm.anchor(txtNumber, Edge.LEFT, 24)
+        schirm.anchor(txtNumber, Edge.TOP, 4, lblNumber, Edge.BOTTOM)
+
+        schirm.anchor(lblName, Edge.LEFT, 24, txtNumber, Edge.RIGHT)
+        schirm.anchor(lblName, Edge.TOP, 20, lblTitle, Edge.BOTTOM)
+        schirm.anchor(txtName, Edge.LEFT, 24, txtNumber, Edge.RIGHT)
+        schirm.anchor(txtName, Edge.TOP, 4, lblNumber, Edge.BOTTOM)
+        schirm.anchor(txtName, Edge.RIGHT, 24)
+
+        schirm.anchor(lblUnit, Edge.LEFT, 24)
+        schirm.anchor(lblUnit, Edge.TOP, 16, txtNumber, Edge.BOTTOM)
+        schirm.anchor(txtUnit, Edge.LEFT, 24)
+        schirm.anchor(txtUnit, Edge.TOP, 4, lblUnit, Edge.BOTTOM)
+
+        schirm.anchor(lblPrice, Edge.LEFT, 24, txtUnit, Edge.RIGHT)
+        schirm.anchor(lblPrice, Edge.TOP, 16, txtNumber, Edge.BOTTOM)
+        schirm.anchor(txtPrice, Edge.LEFT, 24, txtUnit, Edge.RIGHT)
+        schirm.anchor(txtPrice, Edge.TOP, 4, lblUnit, Edge.BOTTOM)
+
+        schirm.anchor(lblVat, Edge.LEFT, 24, txtPrice, Edge.RIGHT)
+        schirm.anchor(lblVat, Edge.TOP, 16, txtNumber, Edge.BOTTOM)
+        schirm.anchor(txtVat, Edge.LEFT, 24, txtPrice, Edge.RIGHT)
+        schirm.anchor(txtVat, Edge.TOP, 4, lblUnit, Edge.BOTTOM)
+
+        schirm.anchor(lblStock, Edge.LEFT, 24, txtVat, Edge.RIGHT)
+        schirm.anchor(lblStock, Edge.TOP, 16, txtNumber, Edge.BOTTOM)
+        schirm.anchor(txtStock, Edge.LEFT, 24, txtVat, Edge.RIGHT)
+        schirm.anchor(txtStock, Edge.TOP, 4, lblUnit, Edge.BOTTOM)
+
+        schirm.anchor(lblDescription, Edge.LEFT, 24)
+        schirm.anchor(lblDescription, Edge.TOP, 16, txtUnit, Edge.BOTTOM)
+        schirm.anchor(txaDescription, Edge.LEFT, 24)
+        schirm.anchor(txaDescription, Edge.TOP, 4, lblDescription, Edge.BOTTOM)
+        schirm.anchor(txaDescription, Edge.RIGHT, 24)
+
+        schirm.anchor(btnSave, Edge.LEFT, 24)
+        schirm.anchor(btnSave, Edge.TOP, 24, txaDescription, Edge.BOTTOM)
+        schirm.anchor(btnCancel, Edge.LEFT, 16, btnSave, Edge.RIGHT)
+        schirm.anchor(btnCancel, Edge.TOP, 24, txaDescription, Edge.BOTTOM)
+        schirm.anchor(btnDelete, Edge.LEFT, 16, btnCancel, Edge.RIGHT)
+        schirm.anchor(btnDelete, Edge.TOP, 24, txaDescription, Edge.BOTTOM)
+
+        schirm.anchor(lblHint, Edge.LEFT, 24)
+        schirm.anchor(lblHint, Edge.TOP, 16, btnSave, Edge.BOTTOM)
+        schirm.anchor(lblHint, Edge.RIGHT, 24)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+
+    ' Three helpers, because eighteen widgets is where copy-and-paste starts to hide mistakes.
+    Private Sub Beschriften(l As Label, text As String, width As Integer)
+        l.setText(text)
+        l.setSize(width, 28)
+        schirm.add(l)
+    End Sub
+
+    Private Sub Feld(t As TextField, width As Integer)
+        t.setSize(width, 48)
+        schirm.add(t)
+    End Sub
+
+    Private Sub MakeButton(b As Button, text As String, handler As ClickHandler)
+        b.setText(text)
+        b.setSize(180, 52)
+        b.onClick(handler)
+        schirm.add(b)
+    End Sub
+
+End Class

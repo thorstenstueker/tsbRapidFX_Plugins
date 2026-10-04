@@ -1,0 +1,20 @@
+' RapidX ERP - a small business application, served to a browser.
+'
+' This project builds without an IDE too:
+'     rfxc --project RapidXERP.rfxproj
+'     java -jar build/RapidXERP.jar
+'
+' Name, Type, Sources and Library are what rfxc looks for. The German spellings - Typ, Quellen,
+' Bibliothek - are still read, so a project file written before the change goes on building.
+
+Name    = RapidXERP
+Type     = WEB
+Sources = src
+
+Library = lib/flatlaf-3.7.2.jar
+Library = lib/flatlaf-intellij-themes-3.7.2.jar
+Library = lib/session-0.1.0.jar
+Library = lib/mirror-0.1.0.jar
+Library = lib/server-0.1.0.jar
+Library = lib/tsbswing-1.0.jar
+Library = lib/sqlite-jdbc-3.53.1.0.jar

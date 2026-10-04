@@ -1,0 +1,341 @@
+' Quotations, delivery notes and invoices — one list, three kinds.
+'
+' The desktop shows one kind at a time and switches with a menu; here a second drop-down does
+' it. That is the only structural change. Everything else — the carry-over, the numbering, the
+' rule that the kind decides which buttons make sense — is DocumentFile's and unchanged.
+'
+' The carry-over is the part worth reading: a quotation becomes a delivery note or an invoice,
+' a delivery note becomes an invoice. DocumentFile.CarryOver copies head and lines, issues a
+' new number and remembers where it came from.
+
+Imports tsb.mobile
+Imports java.util
+
+Public Class DocumentListForm
+    Implements Form
+
+    Private shown As ArrayList = New ArrayList()
+
+    ' Which kind is on show. The shell owns the answer, because it survives leaving the screen.
+    Private kind As String = Document.QUOTATION
+
+    Private Sub OnFormBuilt()
+        Shell.UseDocuments(Me)
+
+        drpArea.setItems(Shell.Areas())
+        drpArea.setSelectedIndex(2)
+
+        drpKind.setItems(Arten())
+        drpKind.setSelectedIndex(IndexOf(Shell.Kind()))
+
+        tbl1.setColumns("Number", "Date", "Customer", "Status", "Gross")
+        tbl1.setColumnWeights(2, 2, 5, 2, 2)
+
+        Display(Shell.Kind())
+    End Sub
+
+    ' --- the three kinds ---------------------------------------------------------------
+
+    Private Function Arten() As ArrayList
+        Dim names As ArrayList = New ArrayList()
+        names.add("Quotations")
+        names.add("Delivery notes")
+        names.add("Invoices")
+        Return names
+    End Function
+
+    Private Function IndexOf(k As String) As Integer
+        If k = Document.DELIVERYNOTE Then
+            Return 1
+        End If
+        If k = Document.INVOICE Then
+            Return 2
+        End If
+        Return 0
+    End Function
+
+    Private Function KindAt(index As Integer) As String
+        If index = 1 Then
+            Return Document.DELIVERYNOTE
+        End If
+        If index = 2 Then
+            Return Document.INVOICE
+        End If
+        Return Document.QUOTATION
+    End Function
+
+    ' A hard restart with another kind: title, buttons, empty search box.
+    Public Function Kind() As String
+        Return kind
+    End Function
+
+    Public Sub Display(k As String)
+        kind = k
+        Shell.SetKind(k)
+        lbl1.setText(Plural(k))
+
+        ' A quotation can become both; a delivery note only an invoice; an invoice neither.
+        btnToNote.setVisible(k = Document.QUOTATION)
+        btnToInvoice.setVisible(k <> Document.INVOICE)
+
+        txt1.setText("")
+        Fill("")
+    End Sub
+
+    Private Function Plural(k As String) As String
+        If k = Document.DELIVERYNOTE Then
+            Return "Delivery notes"
+        End If
+        If k = Document.INVOICE Then
+            Return "Invoices"
+        End If
+        Return "Quotations"
+    End Function
+
+    ' Re-reads with whatever is in the search box, keeping the chosen row.
+    Public Sub Refresh()
+        drpArea.setSelectedIndex(2)
+        drpKind.setSelectedIndex(IndexOf(kind))
+
+        Dim row As Integer = tbl1.getSelectedRow()
+        Fill(txt1.getText())
+        If row >= 0 AndAlso row < shown.size() Then
+            tbl1.setSelectedRow(row)
+        End If
+    End Sub
+
+    Private Sub Fill(text As String)
+        shown = DocumentFile.Search(kind, text)
+        tbl1.clearRows()
+
+        Dim i As Integer
+        For i = 0 To shown.size() - 1
+            Dim d As Document = CType(shown.get(i), Document)
+            tbl1.addRow(d.Number, Util.DateShown(d.DateIso), Util.Text(d.CustomerName), _
+                    Util.Text(d.Status), Util.Money(d.Gross()))
+        Next i
+
+        lbl2.setText(shown.size() + " documents")
+        lbl3.setText("")
+    End Sub
+
+    Private Function Chosen() As Document
+        Dim row As Integer = tbl1.getSelectedRow()
+        If row < 0 OrElse row >= shown.size() Then
+            Return Nothing
+        End If
+        Return CType(shown.get(row), Document)
+    End Function
+
+    ' --- what the buttons do -----------------------------------------------------------
+
+    Private Sub OnSearchChange(source As Widget, text As String)
+        Fill(text)
+    End Sub
+
+    Private Sub OnKindChosen(source As Widget, index As Integer, text As String)
+        Dim wanted As String = KindAt(index)
+        If wanted = kind Then
+            Exit Sub
+        End If
+        Display(wanted)
+    End Sub
+
+    ' A new document exists as an object before it has ever been in the database — it needs a
+    ' number and a kind before somebody can put a customer on it. Same as the desktop.
+    Private Sub OnNew(source As Button)
+        Dim fresh As Document = New Document()
+        fresh.Kind = kind
+        fresh.Number = DocumentFile.NextNumber(kind)
+        fresh.DateIso = Util.TodayIso()
+        Shell.ShowDocumentSheet(fresh)
+    End Sub
+
+    Private Sub OnOpen(source As Button)
+        Dim d As Document = Chosen()
+        If d Is Nothing Then
+            lbl3.setText("Choose a row first.")
+            Exit Sub
+        End If
+        Shell.ShowDocumentSheet(DocumentFile.Load(d.Id))
+    End Sub
+
+    Private Sub OnToNote(source As Button)
+        Convert(Document.DELIVERYNOTE)
+    End Sub
+
+    Private Sub OnToInvoice(source As Button)
+        Convert(Document.INVOICE)
+    End Sub
+
+    ' Head and lines are copied, a new number is issued, and the origin stays on the new
+    ' document. The result is not saved yet — it opens as a sheet, so somebody can look before
+    ' it becomes real.
+    Private Sub Convert(target As String)
+        Dim d As Document = Chosen()
+        If d Is Nothing Then
+            lbl3.setText("Choose a row first.")
+            Exit Sub
+        End If
+        Dim full As Document = DocumentFile.Load(d.Id)
+        Shell.ShowDocumentSheet(DocumentFile.CarryOver(full, target))
+    End Sub
+
+    Private Sub OnRowChosen(source As Table, row As Integer)
+        Dim d As Document = Chosen()
+        If d Is Nothing Then
+            lbl3.setText("")
+            Exit Sub
+        End If
+        lbl3.setText(d.Number + " · " + Util.Text(d.CustomerName) + " · " _
+                + Util.MoneyWithEuro(d.Gross()))
+    End Sub
+
+    ' Ignores its own number — see ArticleListForm.OnAreaChosen.
+    Private Sub OnAreaChosen(source As Widget, index As Integer, text As String)
+        If index = 2 Then
+            Exit Sub
+        End If
+        Shell.GoTo(index)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=DocumentListForm geraet=TABLET_LANDSCAPE w=1112 h=834
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Dropdown drpArea L=24 T=16 W=260 H=48
+    Private drpArea As Dropdown = New Dropdown()
+
+    ' @tsbmob Dropdown drpKind L=16@drpArea.RIGHT T=16 W=260 H=48
+    Private drpKind As Dropdown = New Dropdown()
+
+    ' @tsbmob Button btnNew L=16@drpKind.RIGHT T=16 W=130 H=48
+    Private btnNew As Button = New Button()
+
+    ' @tsbmob Button btnOpen L=12@btnNew.RIGHT T=16 W=130 H=48
+    Private btnOpen As Button = New Button()
+
+    ' @tsbmob Button btnToNote L=12@btnOpen.RIGHT T=16 W=210 H=48
+    Private btnToNote As Button = New Button()
+
+    ' @tsbmob Button btnToInvoice L=12@btnToNote.RIGHT T=16 W=190 H=48
+    Private btnToInvoice As Button = New Button()
+
+    ' @tsbmob Label lbl1 L=24 T=16@drpArea.BOTTOM W=400 H=36
+    Private lbl1 As Label = New Label()
+
+    ' @tsbmob TextField txt1 L=24 T=12@lbl1.BOTTOM R=200 W=600 H=48
+    Private txt1 As TextField = New TextField()
+
+    ' @tsbmob Label lbl2 L=24@txt1.RIGHT T=12@lbl1.BOTTOM R=24 W=160 H=48
+    Private lbl2 As Label = New Label()
+
+    ' @tsbmob Table tbl1 L=24 T=16@txt1.BOTTOM R=24 B=64 W=1064 H=560
+    Private tbl1 As Table = New Table()
+
+    ' @tsbmob Label lbl3 L=24 T=12@tbl1.BOTTOM R=24 W=1064 H=28
+    Private lbl3 As Label = New Label()
+
+    Public Function build() As Screen
+        schirm.setTitle("Documents")
+
+        drpArea.setName("drpArea")
+        drpArea.onSelect(AddressOf OnAreaChosen)
+        drpArea.setSize(260, 48)
+        schirm.add(drpArea)
+
+        drpKind.setName("drpKind")
+        drpKind.onSelect(AddressOf OnKindChosen)
+        drpKind.setSize(260, 48)
+        schirm.add(drpKind)
+
+        MakeButton(btnNew, "New", 130, AddressOf OnNew)
+        MakeButton(btnOpen, "Open", 130, AddressOf OnOpen)
+        MakeButton(btnToNote, "To delivery note", 210, AddressOf OnToNote)
+        MakeButton(btnToInvoice, "To invoice", 190, AddressOf OnToInvoice)
+
+        lbl1.setName("lbl1")
+        lbl1.setText("Quotations")
+        lbl1.setTextSize(26)
+        lbl1.setBold(True)
+        lbl1.setSize(400, 36)
+        schirm.add(lbl1)
+
+        txt1.setName("txt1")
+        txt1.setHint("Search number, customer or subject")
+        txt1.onChange(AddressOf OnSearchChange)
+        txt1.setHeight(48)
+        schirm.add(txt1)
+
+        lbl2.setName("lbl2")
+        lbl2.setText("")
+        lbl2.setSize(160, 48)
+        schirm.add(lbl2)
+
+        tbl1.setName("tbl1")
+        tbl1.onRow(AddressOf OnRowChosen)
+        schirm.add(tbl1)
+
+        lbl3.setName("lbl3")
+        lbl3.setText("")
+        lbl3.setHeight(28)
+        schirm.add(lbl3)
+
+        schirm.anchor(drpArea, Edge.LEFT, 24)
+        schirm.anchor(drpArea, Edge.TOP, 16)
+        schirm.anchor(drpKind, Edge.LEFT, 16, drpArea, Edge.RIGHT)
+        schirm.anchor(drpKind, Edge.TOP, 16)
+        schirm.anchor(btnNew, Edge.LEFT, 16, drpKind, Edge.RIGHT)
+        schirm.anchor(btnNew, Edge.TOP, 16)
+        schirm.anchor(btnOpen, Edge.LEFT, 12, btnNew, Edge.RIGHT)
+        schirm.anchor(btnOpen, Edge.TOP, 16)
+        schirm.anchor(btnToNote, Edge.LEFT, 12, btnOpen, Edge.RIGHT)
+        schirm.anchor(btnToNote, Edge.TOP, 16)
+        schirm.anchor(btnToInvoice, Edge.LEFT, 12, btnToNote, Edge.RIGHT)
+        schirm.anchor(btnToInvoice, Edge.TOP, 16)
+
+        schirm.anchor(lbl1, Edge.LEFT, 24)
+        schirm.anchor(lbl1, Edge.TOP, 16, drpArea, Edge.BOTTOM)
+        schirm.anchor(txt1, Edge.LEFT, 24)
+        schirm.anchor(txt1, Edge.TOP, 12, lbl1, Edge.BOTTOM)
+        schirm.anchor(txt1, Edge.RIGHT, 200)
+        schirm.anchor(lbl2, Edge.LEFT, 24, txt1, Edge.RIGHT)
+        schirm.anchor(lbl2, Edge.TOP, 12, lbl1, Edge.BOTTOM)
+        schirm.anchor(lbl2, Edge.RIGHT, 24)
+        schirm.anchor(tbl1, Edge.LEFT, 24)
+        schirm.anchor(tbl1, Edge.TOP, 16, txt1, Edge.BOTTOM)
+        schirm.anchor(tbl1, Edge.RIGHT, 24)
+        schirm.anchor(tbl1, Edge.BOTTOM, 64)
+        schirm.anchor(lbl3, Edge.LEFT, 24)
+        schirm.anchor(lbl3, Edge.TOP, 12, tbl1, Edge.BOTTOM)
+        schirm.anchor(lbl3, Edge.RIGHT, 24)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+
+    Private Sub MakeButton(b As Button, text As String, width As Integer, handler As ClickHandler)
+        b.setText(text)
+        b.setSize(width, 48)
+        b.onClick(handler)
+        schirm.add(b)
+    End Sub
+
+End Class

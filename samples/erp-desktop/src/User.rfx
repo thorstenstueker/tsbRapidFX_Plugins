@@ -1,0 +1,24 @@
+' Who is sitting in front of the program.
+'
+' On the desktop there is exactly one of these at a time, and it is held in a field of
+' MainWindow. That is the whole of "being signed in" here - no cookie, no session, no timeout.
+
+Public Class User
+
+    Public Property Login As String
+    Public Property DisplayName As String
+    Public Property Role As String
+
+    Public Sub New()
+        Login = ""
+        DisplayName = ""
+        Role = ""
+    End Sub
+
+    ' True for the administrator. Nothing in this program refuses anything yet, but the role is
+    ' read and carried about, so that the first rule to be written has somewhere to ask.
+    Public Function IsAdmin() As Boolean
+        Return Role = "admin"
+    End Function
+
+End Class

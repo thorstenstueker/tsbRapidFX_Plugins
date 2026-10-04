@@ -1,0 +1,172 @@
+' Where the screens are kept and switched — the tablet's answer to MainWindow.
+'
+' The desktop twin is a form with a menu bar, a content panel and a Place() that swaps one child
+' for another. A tablet has no menu bar, and tsb.mobile has no content panel: App.show() swaps
+' the whole screen. So this is a Module rather than a Form — it owns no widgets, only the
+' decision about what is in front.
+'
+' The navigation logic itself is almost word for word MainWindow's, and deliberately so. It was
+' about sixty lines there and it is about sixty here.
+'
+' WHAT LIVES AND WHAT DOES NOT
+'
+' The three lists are fields: created once, shown again and again. That is what keeps a search
+' text in its box when somebody looks at a customer and comes back. The sheets are not fields —
+' every one is New, because a sheet is about one record and its state is that record.
+'
+' This is the same rule the desktop uses, and App.show() is built for it: the same instance is
+' the same screen, a new instance is a new screen. Nothing here has to say so.
+
+Imports tsb.mobile
+Imports java.util
+
+Module Shell
+
+    ' The three long-lived screens. Nothing forces this — App would happily rebuild them — but
+    ' rebuilding means OnFormBuilt(), which means reading the database and losing the search.
+    Private customers As CustomerListForm
+    Private articles As ArticleListForm
+    Private documents As DocumentListForm
+
+    ' Which kind of document is on show. The one piece of state that outlives a screen — the
+    ' desktop keeps it in MainWindow for the same reason: after a carry-over from quotation to
+    ' invoice, the list has to come back showing invoices.
+    Private kind As String = Document.QUOTATION
+
+    ' Who is signed in. Not used yet; SignInForm will set it.
+    Private who As User
+
+    ' --- who is already there ---------------------------------------------------------
+
+    ' A list says "I am the customer list" while it is being built.
+    '
+    ' Needed because the *first* form is not created here. FormActivity builds whatever the
+    ' manifest names, and iOS the same — so when somebody then taps the navigation bar, this
+    ' module would otherwise find its field empty and build a second one. The screen would look
+    ' identical and the search text would be gone, which is exactly what happened on the
+    ' emulator before this existed.
+    Public Sub UseCustomers(f As CustomerListForm)
+        customers = f
+    End Sub
+
+    Public Sub UseArticles(f As ArticleListForm)
+        articles = f
+    End Sub
+
+    Public Sub UseDocuments(f As DocumentListForm)
+        documents = f
+    End Sub
+
+    Public Function Kind() As String
+        Return kind
+    End Function
+
+    Public Sub SetKind(k As String)
+        kind = k
+    End Sub
+
+    ' --- the three areas ------------------------------------------------------------
+
+    Public Sub ShowCustomers()
+        If customers Is Nothing Then
+            customers = New CustomerListForm()
+        Else
+            ' Re-read before showing, exactly where the desktop does it. Somebody may have
+            ' changed a customer on the sheet we are coming back from.
+            customers.Refresh()
+        End If
+        App.show(customers)
+    End Sub
+
+    Public Sub ShowArticles()
+        If articles Is Nothing Then
+            articles = New ArticleListForm()
+        Else
+            articles.Refresh()
+        End If
+        App.show(articles)
+    End Sub
+
+    ' The sheets are not fields: every one is New, because a sheet is about one record and
+    ' its state is that record. App.show() gives a new instance a new screen.
+    Public Sub ShowCustomerSheet(id As Integer)
+        App.show(New CustomerSheetForm(id))
+    End Sub
+
+    Public Sub ShowArticleSheet(id As Integer)
+        App.show(New ArticleSheetForm(id))
+    End Sub
+
+    Public Sub ShowDocuments()
+        If documents Is Nothing Then
+            documents = New DocumentListForm()
+        Else
+            ' A carry-over may have changed the kind under us — then it is a hard restart with
+            ' the new kind, not a refresh. Straight out of MainWindow.BackToDocuments.
+            If documents.Kind() <> kind Then
+                documents.Display(kind)
+            Else
+                documents.Refresh()
+            End If
+        End If
+        App.show(documents)
+    End Sub
+
+    Public Sub ShowDocumentSheet(doc As Document)
+        ' The kind travels with the document — after a carry-over the navigation has to follow.
+        kind = doc.Kind
+        App.show(New DocumentSheetForm(doc))
+    End Sub
+
+    ' --- the navigation -------------------------------------------------------------
+
+    ' The areas, in the order the drop-down shows them.
+    '
+    ' A drop-down and not a row of buttons, and it is the better fit twice over: three buttons
+    ' need 558 points side by side and a phone has 390, and a menu that opens is what both
+    ' platforms do natively — a UIButton with a UIMenu on iOS, a Spinner on Android. It also
+    ' grows: a row of buttons does not survive the fifth area, a list does.
+    '
+    ' The list lives here because the shell is the only thing that knows what the areas are.
+    Public Function Areas() As ArrayList
+        Dim names As ArrayList = New ArrayList()
+        names.add("Customers")
+        names.add("Articles")
+        names.add("Documents")
+        Return names
+    End Function
+
+    ' Index into Areas(). Called by whichever form the drop-down sits on.
+    Public Sub GoTo(index As Integer)
+        Select Case index
+            Case 0
+                ShowCustomers()
+            Case 1
+                ShowArticles()
+            Case 2
+                ShowDocuments()
+        End Select
+    End Sub
+
+    ' --- messages -------------------------------------------------------------------
+
+    ' What the desktop shows in a line above the content.
+    '
+    ' There is no such line on the tablet yet, so it goes to the log. It is here rather than
+    ' nowhere because the calls that need it are the ones being ported, and a call that compiles
+    ' is easier to fill in later than one that has to be invented.
+    Public Sub Say(text As String)
+        Print "Shell: " + text
+    End Sub
+
+    ' --- who ------------------------------------------------------------------------
+
+    Public Sub SignedIn(u As User)
+        who = u
+    End Sub
+
+    Public Function Who() As User
+        Return who
+    End Function
+
+End Module

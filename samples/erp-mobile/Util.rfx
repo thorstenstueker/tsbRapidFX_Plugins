@@ -1,0 +1,93 @@
+' The four small things that would otherwise be written out again in every form.
+'
+' Numbers and dates travel constantly between the screen, the database and a document, and each
+' of those conversions has exactly one right shape. It is written here once.
+'
+' In the database a date is "2026-09-08" - the form SQLite compares and sorts. On screen it is
+' "08.09.2026". The two functions in between are the whole of that difference.
+'
+' The application is written in English; the business it does is German. Amounts read
+' "1.234,50 EUR" and dates "08.09.2026", because that is what the people using it expect.
+'
+' Format() follows the machine's own language setting, which on the computers this program is
+' meant for is German. Sub Main deliberately leaves that setting alone - the day somebody
+' switches their computer to English, the amounts should follow.
+
+Module Util
+
+    ' Reads a number somebody typed. "12,50" and "12.50" mean the same; nonsense is 0.
+    '
+    ' Lenient on purpose rather than strict: a quantity with a stray space stuck to it must not
+    ' produce an error dialog.
+    Public Function ToNumber(text As String) As Double
+        If text Is Nothing Then
+            Return 0
+        End If
+        Dim clean As String = Replace(Trim(text), ",", ".")
+        clean = Replace(clean, " ", "")
+        If clean = "" Then
+            Return 0
+        End If
+        Try
+            Return Double.parseDouble(clean)
+        Catch e As java.lang.NumberFormatException
+            Return 0
+        End Try
+    End Function
+
+    ' 1234.5 becomes "1.234,50" - no currency, for a table column.
+    Public Function Money(value As Double) As String
+        Return Format(value, "#,##0.00")
+    End Function
+
+    ' The same with the currency, for a totals line.
+    Public Function MoneyWithEuro(value As Double) As String
+        Return Format(value, "#,##0.00") + " EUR"
+    End Function
+
+    ' A quantity shows only the decimals it needs: 3 rather than 3,000.
+    Public Function QuantityText(value As Double) As String
+        If value = Fix(value) Then
+            Return CStr(CLng(value))
+        End If
+        Return Format(value, "#,##0.###")
+    End Function
+
+    ' --- dates -------------------------------------------------------------------
+
+    Public Function TodayIso() As String
+        Return Format(Today(), "yyyy-mm-dd")
+    End Function
+
+    ' "2026-09-08" becomes "08.09.2026". Anything that does not look like one is left alone.
+    Public Function DateShown(iso As String) As String
+        If iso Is Nothing OrElse Len(iso) < 10 Then
+            Return ""
+        End If
+        ' Positions count from zero: the day sits at 8 and 9, the month at 5 and 6.
+        Return Mid(iso, 8, 2) + "." + Mid(iso, 5, 2) + "." + Left(iso, 4)
+    End Function
+
+    ' "08.09.2026" becomes "2026-09-08". What is already ISO stays that way.
+    Public Function DateToIso(shown As String) As String
+        Dim text As String = Trim(shown)
+        If Len(text) = 10 AndAlso Mid(text, 4, 1) = "-" Then
+            Return text
+        End If
+        If Len(text) = 10 AndAlso Mid(text, 2, 1) = "." Then
+            Return Right(text, 4) + "-" + Mid(text, 3, 2) + "-" + Left(text, 2)
+        End If
+        Return TodayIso()
+    End Function
+
+    ' --- text ---------------------------------------------------------------------
+
+    ' What comes out of the database may be Nothing; what goes into a text field may not.
+    Public Function Text(value As String) As String
+        If value Is Nothing Then
+            Return ""
+        End If
+        Return value
+    End Function
+
+End Module

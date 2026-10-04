@@ -1,0 +1,508 @@
+' The document sheet: head, lines, totals - and the same screen for a quotation, a delivery note
+' and an invoice.
+'
+' Compare this with the web version and the difference is one word. There, the document being
+' edited had to live in the session, because adding a line rebuilt the whole display and a field
+' of the form would have been thrown away with it. Here the form stays on the screen while it is
+' being worked on, so the document is an ordinary field - and the sentence in the web version
+' explaining why it could not be one is simply gone.
+Imports java.awt
+Imports java.awt.event
+Imports java.util
+Imports javax.swing
+
+Public Class DocumentSheetForm
+
+    Private shell As MainWindow
+
+    ' The document being edited. An ordinary field: this form lives as long as the editing does.
+    Private doc As Document
+
+    ' The customers and articles behind the two combo boxes, in the same order.
+    Private customers As ArrayList = New ArrayList()
+    Private articles As ArrayList = New ArrayList()
+
+    ' While the screen is being built, an event is not a user's doing.
+    '
+    ' Without this the customer was lost on carrying a document over, and the way there is worth
+    ' knowing: the first addItem selects by itself in a JComboBox, so OnCustomerChosen ran while
+    ' the box was still being filled - with the placeholder as the selection. CollectHead
+    ' thereupon wrote customer number 0 into the document, and what was marked afterwards was,
+    ' quite consistently, the placeholder again. A quotation for Bauzentrum Sued KG became an
+    ' invoice with no recipient, and the message read "The document cannot be saved without ...".
+    Private building As Boolean = True
+
+    Public Sub New(owner As MainWindow, document As Document)
+        InitDesignerComponents()
+        shell = owner
+        doc = document
+
+        FillCombos()
+        Display()
+        ShowLines()
+
+        ' From here on, every event comes from a human being.
+        building = False
+    End Sub
+
+    ' --- building it ------------------------------------------------------------------
+
+    ' The two combo boxes hold customers and articles themselves, not their numbers. What comes
+    ' back out of one is therefore a customer, and does not have to be found again from its text.
+    Private Sub FillCombos()
+        ' A placeholder with the number 0 at the very top. Without it the first customer of the
+        ' file would stand there preselected, and a quotation would go to them by accident: a
+        ' JComboBox selects by itself on the first addItem, and an empty line instead does not
+        ' read as a request to choose.
+        Dim none As Customer = New Customer()
+        none.Number = ""
+        none.Name = "— please choose a customer —"
+
+        customers = New ArrayList()
+        customers.add(none)
+        customers.addAll(CustomerFile.All())
+
+        Dim entry As Object
+        For Each entry In customers
+            cmbCustomer.addItem(entry)
+        Next entry
+
+        articles = ArticleFile.All()
+        For Each entry In articles
+            cmbArticle.addItem(entry)
+        Next entry
+    End Sub
+
+    Private Sub Display()
+        lblTitle.Text = doc.Kind + " " + doc.Number
+        If doc.Id = 0 Then
+            lblTitle.Text = lblTitle.Text + "  (new)"
+        End If
+
+        ' An invoice becomes nothing further.
+        btnConvert.setVisible((doc.Kind <> Document.INVOICE))
+
+        txtNumber.Text = doc.Number
+        txtDate.Text = Util.DateShown(doc.DateIso)
+        txtSubject.Text = doc.Subject
+        MarkCustomer()
+        Totals()
+    End Sub
+
+    Private Sub MarkCustomer()
+        Dim i As Integer
+        For i = 0 To customers.size() - 1
+            If CType(customers.get(i), Customer).Id = doc.CustomerId Then
+                cmbCustomer.setSelectedIndex(i)
+                Exit Sub
+            End If
+        Next i
+        cmbCustomer.setSelectedIndex(0)
+    End Sub
+
+    ' The lines into the table. The running number is in the first column, so that "line 3" means
+    ' the same on screen as it does in a conversation.
+    Private Sub ShowLines()
+        tblLines.Clear()
+        Dim i As Integer
+        For i = 0 To doc.LineCount() - 1
+            Dim p As DocumentLine = doc.LineAt(i)
+            tblLines.AddRow(i + 1, p.Number, p.Name, _
+                            Util.QuantityText(p.Quantity), p.Unit, _
+                            Util.Money(p.UnitPrice), _
+                            Util.QuantityText(p.VatRate) + " %", _
+                            Util.Money(p.Amount()))
+        Next i
+        tblLines.Reload()
+        Totals()
+    End Sub
+
+    Private Sub Totals()
+        lblNet.Text = "Net: " + Util.MoneyWithEuro(doc.Net())
+        lblTax.Text = "VAT: " + Util.MoneyWithEuro(doc.Tax())
+        lblGross.Text = "Total: " + Util.MoneyWithEuro(doc.Gross())
+    End Sub
+
+    ' From the head of the screen into the document. Before every step that passes it on.
+    Private Sub CollectHead()
+        doc.DateIso = Util.DateToIso(txtDate.Text)
+        doc.Subject = Trim(txtSubject.Text)
+
+        Dim chosen As Object = cmbCustomer.getSelectedItem()
+        If chosen Is Nothing Then
+            doc.CustomerId = 0
+            doc.CustomerName = ""
+        Else
+            Dim k As Customer = CType(chosen, Customer)
+            doc.CustomerId = k.Id
+            doc.CustomerName = k.Name
+        End If
+    End Sub
+
+    ' --- the buttons ---------------------------------------------------------------------
+
+    Private Sub OnCustomerChosen(e As ActionEvent)
+        If building Then
+            Exit Sub
+        End If
+        CollectHead()
+    End Sub
+
+    ' Adding a line changes an object and redraws one table. Nothing else on the screen is
+    ' touched, and nothing at all reaches the database.
+    Private Sub OnLineAdd(e As ActionEvent)
+        Dim chosen As Object = cmbArticle.getSelectedItem()
+        If chosen Is Nothing Then
+            lblHint.Text = "Please choose an article first."
+            Exit Sub
+        End If
+
+        Dim quantity As Double = Util.ToNumber(txtQuantity.Text)
+        If quantity = 0 Then
+            quantity = 1
+        End If
+
+        CollectHead()
+        doc.AddLine(DocumentLine.FromArticle(CType(chosen, Article), quantity))
+        txtQuantity.Text = "1"
+        ShowLines()
+        lblHint.Text = ""
+    End Sub
+
+    Private Sub OnLineRemove(e As ActionEvent)
+        Dim row As Integer = tblLines.Table().getSelectedRow()
+        If row < 0 OrElse row >= doc.LineCount() Then
+            lblHint.Text = "Please select a line first."
+            Exit Sub
+        End If
+        CollectHead()
+        doc.RemoveLine(row)
+        ShowLines()
+        lblHint.Text = ""
+    End Sub
+
+    Private Sub OnSave(e As ActionEvent)
+        CollectHead()
+
+        If doc.CustomerId = 0 Then
+            lblHint.Text = "The document cannot be saved without a customer."
+            Exit Sub
+        End If
+        If doc.LineCount() = 0 Then
+            lblHint.Text = "The document cannot be saved without lines."
+            Exit Sub
+        End If
+
+        DocumentFile.Save(doc)
+        shell.BackToDocuments()
+        shell.Say(doc.Kind + " " + doc.Number + " saved - " _
+                + Util.MoneyWithEuro(doc.Gross()) + ".")
+    End Sub
+
+    ' Make the next document out of this one without the detour through the list. It is saved
+    ' first: an invoice whose quotation never existed would be hard to explain.
+    Private Sub OnConvert(e As ActionEvent)
+        CollectHead()
+        If doc.CustomerId = 0 OrElse doc.LineCount() = 0 Then
+            lblHint.Text = "Customer and lines first, then convert."
+            Exit Sub
+        End If
+
+        DocumentFile.Save(doc)
+        Dim fresh As Document = DocumentFile.CarryOver(doc, Document.INVOICE)
+
+        shell.ShowDocumentSheet(fresh)
+        shell.Say(doc.Kind + " " + doc.Number + " saved and carried over as invoice " _
+                + fresh.Number + ". Not saved yet.")
+    End Sub
+
+    Private Sub OnBack(e As ActionEvent)
+        shell.BackToDocuments()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                              TSB RAPIDFX LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=DocumentSheetForm root=AnchorPanel ziel=DESKTOP platform=CUSTOM w=1132 h=590 showIn=false theme=FlatLightLaf
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblTitle parent=rootPane L=0 T=0 W=520 H=28
+    Private lblTitle As JLabel = New JLabel()
+
+    ' @tsbswx Label lblCustomer parent=rootPane L=0 T=46 W=110 H=24
+    Private lblCustomer As JLabel = New JLabel()
+
+    ' @tsbswx ComboBox cmbCustomer parent=rootPane L=120 T=44 W=420 H=28
+    Private cmbCustomer As JComboBox = New JComboBox()
+
+    ' @tsbswx Label lblDate parent=rootPane L=556 T=46 W=70 H=24
+    Private lblDate As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtDate parent=rootPane L=630 T=44 W=140 H=28
+    Private txtDate As JTextField = New JTextField()
+
+    ' @tsbswx Label lblNumber parent=rootPane L=786 T=46 W=90 H=24
+    Private lblNumber As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtNumber parent=rootPane L=880 T=44 W=180 H=28
+    Private txtNumber As JTextField = New JTextField()
+
+    ' @tsbswx Label lblSubject parent=rootPane L=0 T=86 W=110 H=24
+    Private lblSubject As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtSubject parent=rootPane L=120 T=84 R=72 W=940 H=28
+    Private txtSubject As JTextField = New JTextField()
+
+    ' @tsbswx Label lblLines parent=rootPane L=0 T=128 W=300 H=24
+    Private lblLines As JLabel = New JLabel()
+
+    ' @tsbswx SmartTable tblLines parent=rootPane L=0 T=156 R=0 W=1132 H=234
+    Private tblLines As tsbSmartTable = New tsbSmartTable()
+
+    ' @tsbswx Label lblArticle parent=rootPane L=0 T=406 W=110 H=24
+    Private lblArticle As JLabel = New JLabel()
+
+    ' @tsbswx ComboBox cmbArticle parent=rootPane L=120 T=404 W=460 H=28
+    Private cmbArticle As JComboBox = New JComboBox()
+
+    ' @tsbswx Label lblQuantity parent=rootPane L=596 T=406 W=70 H=24
+    Private lblQuantity As JLabel = New JLabel()
+
+    ' @tsbswx TextField txtQuantity parent=rootPane L=670 T=404 W=100 H=28
+    Private txtQuantity As JTextField = New JTextField()
+
+    ' @tsbswx Button btnAdd parent=rootPane L=780 T=404 W=170 H=28
+    Private btnAdd As JButton = New JButton()
+
+    ' @tsbswx Button btnRemove parent=rootPane T=404 R=0 W=174 H=28
+    Private btnRemove As JButton = New JButton()
+
+    ' @tsbswx Label lblNet parent=rootPane L=0 T=448 W=320 H=22
+    Private lblNet As JLabel = New JLabel()
+
+    ' @tsbswx Label lblTax parent=rootPane L=0 T=474 W=320 H=22
+    Private lblTax As JLabel = New JLabel()
+
+    ' @tsbswx Label lblGross parent=rootPane L=0 T=500 W=320 H=24
+    Private lblGross As JLabel = New JLabel()
+
+    ' @tsbswx Button btnBack parent=rootPane T=496 R=424 W=150 H=32
+    Private btnBack As JButton = New JButton()
+
+    ' @tsbswx Button btnConvert parent=rootPane T=496 R=192 W=220 H=32
+    Private btnConvert As JButton = New JButton()
+
+    ' @tsbswx Button btnSave parent=rootPane T=496 R=0 W=180 H=32
+    Private btnSave As JButton = New JButton()
+
+    ' @tsbswx Label lblHint parent=rootPane L=0 T=546 R=0 W=1132 H=22
+    Private lblHint As JLabel = New JLabel()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(1132, 590))
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setFont(New Font("SansSerif", Font.BOLD, 18))
+        lblTitle.setText("Document")
+        lblTitle.setPreferredSize(New Dimension(520, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblTitle, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblTitle, 0, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblTitle)
+
+        lblCustomer.setName("lblCustomer")
+        lblCustomer.setText("Customer")
+        lblCustomer.setPreferredSize(New Dimension(110, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblCustomer, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblCustomer, 46, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblCustomer)
+
+        cmbCustomer.setName("cmbCustomer")
+        cmbCustomer.addActionListener(AddressOf OnCustomerChosen)
+        cmbCustomer.setPreferredSize(New Dimension(420, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, cmbCustomer, 120, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, cmbCustomer, 44, SpringLayout.NORTH, rootPane)
+        rootPane.add(cmbCustomer)
+
+        lblDate.setName("lblDate")
+        lblDate.setText("Date")
+        lblDate.setPreferredSize(New Dimension(70, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblDate, 556, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblDate, 46, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblDate)
+
+        txtDate.setName("txtDate")
+        txtDate.setPreferredSize(New Dimension(140, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtDate, 630, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtDate, 44, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtDate)
+
+        lblNumber.setName("lblNumber")
+        lblNumber.setText("Number")
+        lblNumber.setPreferredSize(New Dimension(90, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblNumber, 786, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblNumber, 46, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblNumber)
+
+        txtNumber.setName("txtNumber")
+        txtNumber.setEditable(False)
+        txtNumber.setPreferredSize(New Dimension(180, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtNumber, 880, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtNumber, 44, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtNumber)
+
+        lblSubject.setName("lblSubject")
+        lblSubject.setText("Subject")
+        lblSubject.setPreferredSize(New Dimension(110, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblSubject, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblSubject, 86, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblSubject)
+
+        txtSubject.setName("txtSubject")
+        txtSubject.setPreferredSize(New Dimension(940, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtSubject, 120, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtSubject, 84, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, txtSubject, -72, SpringLayout.EAST, rootPane)
+        rootPane.add(txtSubject)
+
+        lblLines.setName("lblLines")
+        lblLines.setText("Lines")
+        lblLines.setPreferredSize(New Dimension(300, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblLines, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblLines, 128, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblLines)
+
+        tblLines.setName("tblLines")
+        tblLines.setColumns("No, Number, Name, Quantity, Unit, Unit price, VAT, Amount")
+        tblLines.setColumnWidths("5%, 11%, 34%, 8%, 9%, 12%, 8%, 13%")
+        tblLines.setRowHeight(24)
+        tblLines.setPreferredSize(New Dimension(1132, 234))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, tblLines, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, tblLines, 156, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, tblLines, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(tblLines)
+
+        lblArticle.setName("lblArticle")
+        lblArticle.setText("Article")
+        lblArticle.setPreferredSize(New Dimension(110, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblArticle, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblArticle, 406, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblArticle)
+
+        cmbArticle.setName("cmbArticle")
+        cmbArticle.setPreferredSize(New Dimension(460, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, cmbArticle, 120, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, cmbArticle, 404, SpringLayout.NORTH, rootPane)
+        rootPane.add(cmbArticle)
+
+        lblQuantity.setName("lblQuantity")
+        lblQuantity.setText("Quantity")
+        lblQuantity.setPreferredSize(New Dimension(70, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblQuantity, 596, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblQuantity, 406, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblQuantity)
+
+        txtQuantity.setName("txtQuantity")
+        txtQuantity.setText("1")
+        txtQuantity.addActionListener(AddressOf OnLineAdd)
+        txtQuantity.setPreferredSize(New Dimension(100, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, txtQuantity, 670, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, txtQuantity, 404, SpringLayout.NORTH, rootPane)
+        rootPane.add(txtQuantity)
+
+        btnAdd.setName("btnAdd")
+        btnAdd.setText("Add line")
+        btnAdd.addActionListener(AddressOf OnLineAdd)
+        btnAdd.setPreferredSize(New Dimension(170, 28))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnAdd, 780, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnAdd, 404, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnAdd)
+
+        btnRemove.setName("btnRemove")
+        btnRemove.setText("Remove line")
+        btnRemove.addActionListener(AddressOf OnLineRemove)
+        btnRemove.setPreferredSize(New Dimension(174, 28))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnRemove, 404, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnRemove, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(btnRemove)
+
+        lblNet.setName("lblNet")
+        lblNet.setText("Net:")
+        lblNet.setPreferredSize(New Dimension(320, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblNet, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblNet, 448, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblNet)
+
+        lblTax.setName("lblTax")
+        lblTax.setText("VAT:")
+        lblTax.setPreferredSize(New Dimension(320, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblTax, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblTax, 474, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblTax)
+
+        lblGross.setName("lblGross")
+        lblGross.setFont(New Font("SansSerif", Font.BOLD, 15))
+        lblGross.setText("Total:")
+        lblGross.setPreferredSize(New Dimension(320, 24))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblGross, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblGross, 500, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblGross)
+
+        btnBack.setName("btnBack")
+        btnBack.setText("Back")
+        btnBack.addActionListener(AddressOf OnBack)
+        btnBack.setPreferredSize(New Dimension(150, 32))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnBack, 496, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnBack, -424, SpringLayout.EAST, rootPane)
+        rootPane.add(btnBack)
+
+        btnConvert.setName("btnConvert")
+        btnConvert.setText("Convert to invoice")
+        btnConvert.addActionListener(AddressOf OnConvert)
+        btnConvert.setPreferredSize(New Dimension(220, 32))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnConvert, 496, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnConvert, -192, SpringLayout.EAST, rootPane)
+        rootPane.add(btnConvert)
+
+        btnSave.setName("btnSave")
+        btnSave.setText("Save")
+        btnSave.addActionListener(AddressOf OnSave)
+        btnSave.setPreferredSize(New Dimension(180, 32))
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnSave, 496, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, btnSave, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(btnSave)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("")
+        lblHint.setPreferredSize(New Dimension(1132, 22))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblHint, 0, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblHint, 546, SpringLayout.NORTH, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.EAST, lblHint, 0, SpringLayout.EAST, rootPane)
+        rootPane.add(lblHint)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class
