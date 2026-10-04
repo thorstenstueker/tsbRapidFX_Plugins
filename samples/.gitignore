@@ -1,4 +1,15 @@
-# A sample is source. What a build makes is not.
+# What a build leaves behind. The mobile sample's build/ once held a whole signed
+# iOS app — 100-odd files, every third-party jar and a dSYM — and it was one
+# commit away from a public repository.
 build/
 out/
-*.class
+
+# Libraries belong beside a sample, not inside this repository. The note in each
+# lib/ folder says which ones and where they come from; the jars themselves are
+# either third-party or ours to sell, and neither is ours to publish here.
+*.jar
+*.zip
+
+# IDE
+*.iml
+.idea/

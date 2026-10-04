@@ -1,0 +1,80 @@
+' Page two of two, and it has no Back button on purpose.
+'
+' The back gesture already goes back, because App.show put this page on the
+' stack. A button beside it would be a second way to do the same thing, and the
+' two would have to be kept in agreement for ever. App.back() is there for the
+' cases where something other than a gesture has to go back — Cancel on a sheet,
+' say — and this is not one of them.
+
+Imports tsb.mobile
+
+Public Class PageTwo
+    Implements Form
+
+    ' Handles OnFormBuilt - the body is yours.
+    Private Sub OnFormBuilt()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=PageTwo device=PHONE w=390 h=844
+    Private screen As Screen = New Screen()
+
+    ' @tsbmob Label lblWhere L=24 T=24 R=24 W=160 H=40
+    Private lblWhere As Label = New Label()
+
+    ' @tsbmob Label lblHint L=24 T=24@lblWhere.BOTTOM R=24 W=160 H=24
+    Private lblHint As Label = New Label()
+
+    ' Builds this form's screen.
+    '
+    ' Called once, by the platform's entry point: the activity on Android, the
+    ' delegate on iOS, SwingApp on the desktop. It works only on instance fields,
+    ' so every instance of this form has widgets of its own.
+    Public Function build() As Screen
+        screen.setTitle("PageTwo")
+
+        lblWhere.setName("lblWhere")
+        lblWhere.setText("Page two")
+        lblWhere.setTextSize(28)
+        lblWhere.setBold(True)
+        lblWhere.setHeight(40)
+        screen.add(lblWhere)
+
+        lblHint.setName("lblHint")
+        lblHint.setText("Back gesture — or Escape in the simulator")
+        lblHint.setHeight(24)
+        screen.add(lblHint)
+
+        ' One line per anchor: this edge of this widget is N from that edge of the
+        ' screen's safe area, or of another widget. Both edges of an axis anchored
+        ' means it stretches.
+        screen.anchor(lblWhere, Edge.LEFT, 24)
+        screen.anchor(lblWhere, Edge.TOP, 24)
+        screen.anchor(lblWhere, Edge.RIGHT, 24)
+        screen.anchor(lblHint, Edge.LEFT, 24)
+        screen.anchor(lblHint, Edge.TOP, 24, lblWhere, Edge.BOTTOM)
+        screen.anchor(lblHint, Edge.RIGHT, 24)
+
+        ' Your half of the file: fill a list, set an initial state, wire what the
+        ' designer cannot know about.
+        OnFormBuilt()
+
+        Return screen
+    End Function
+End Class

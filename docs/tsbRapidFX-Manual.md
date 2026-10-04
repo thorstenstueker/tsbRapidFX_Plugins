@@ -6,6 +6,8 @@ A Basic for the JVM — the language, the compiler, the Java class library, data
 
 It is all one product now: **one IntelliJ IDEA plugin** carries the language, the three designers and tsbDeploy. The separate mobile plugin for Android Studio is gone since 19.09.2026; where older notes still say "Android Studio", read "the IDE".
 
+And since 01.10.2026 a mobile program is **compiled ahead of time** on both phones — machine code for arm64, no bytecode interpreter and no JIT, with one class library instead of the two that used to have to agree. Part VII is written to that; it is why locale data, the network and concurrency could be settled at all.
+
 This manual describes tsbRapidFX as it stands. Every program in it was compiled by the real `rfxc` before it was printed, and the ones that produce output were run. Where a thing does not work yet, the manual says so rather than describing what it ought to do.
 
 ---
@@ -71,11 +73,12 @@ This manual describes tsbRapidFX as it stands. Every program in it was compiled 
 **Part VII — Mobile**
 
 24. The mobile designer
-25. Building and running on a device
+25. Writing a mobile program
+26. Building and running on a device
 
 **Part VIII — Packaging**
 
-26. Packaging with tsbDeploy
+27. Packaging with tsbDeploy
 
 ---
 
@@ -200,6 +203,15 @@ Options:
       --jar <file.jar>      build a runnable jar instead of .class files
                             (the runtime library goes inside it; -cp entries
                             are named as Class-Path in the manifest)
+      --device-library <jars>
+                            the class library the device really has, separated
+                            by ':' - robovm-rt.jar for a phone. Every call the
+                            program makes is held against it, so a method this
+                            machine's Java has and the phone's has not is an
+                            error here rather than a crash there
+      --check-classes <jar|dir>
+                            check class files somebody else compiled against
+                            --device-library and write nothing
       --run                 start 'Sub Main' after compiling
   -v, --verbose             list the files written
       --no-color            no colour in error messages
@@ -207,6 +219,8 @@ Options:
 ```
 
 `--classpath` applies to both compiling *and* `--run`. That is deliberate: compiling against one version of a library and running against another is the mistake that shows up later as a `NoSuchMethodError` inside a window.
+
+`--device-library` is the one worth knowing about even if you never type it, because `rfxmobile` passes it for you on every mobile build. A phone's class library is not this machine's: it is missing about 318 members of classes that do exist, and without this switch the first you would hear of one is a crash on the device. With it, the compiler says so here. Chapter 26 goes into what is absent and why.
 
 ### Where Sub Main may live
 
@@ -892,6 +906,8 @@ A lambda fits anywhere a **single-method interface** is expected: `Runnable`, `A
 A lambda may read what surrounds it: locals, fields, `Me`.
 
 ```basic
+Imports javax.swing
+
 Public Class Counter
     Private state As Integer
 
@@ -2678,6 +2694,9 @@ End Sub
 There is **no router and no navigation**. `createRoot` decides afresh:
 
 ```basic
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+
 Public Class ScreenApp
     Implements tsbWebApp
 
@@ -2737,7 +2756,7 @@ The fourth argument of `showConfirmDialog` is **`withCancel`**: `False` gives Ye
 
 A caller that only checks for `YES_OPTION` therefore treats a dismissal as a no — which is the safe direction, and the one `JOptionPane` has always taken.
 
-> **The buttons are labelled in German** — *Ja*, *Nein*, *Abbrechen* — in the version shipped at the time of writing. For an English-facing application, build the dialog yourself with `tsbWebDialog` (below), where the labels are yours.
+> **The button labels follow the server's locale, not your program's.** They are Swing's own — read out of `UIManager` the way a desktop `JOptionPane` reads them — so a server running under a German locale offers *Ja*, *Nein* and *Abbrechen* to every visitor, whatever language the rest of your application is in. Nothing is hard-coded in tsbWEB, which also means nothing in tsbWEB can fix it. Two ways out: start the server with `-Duser.language=en`, or build the dialog yourself with `tsbWebDialog` (below), where the labels are yours.
 
 **It blocks.** The line after `showConfirmDialog` runs only once the user has answered. Behind that is a nested event loop on the session thread — the same construction Swing's EDT uses to serve a modal `JDialog`. The waiting thread keeps taking work off its own queue, so the click carrying the answer arrives, the button fires, and the loop ends.
 
@@ -2769,6 +2788,9 @@ End Sub
 ```
 
 ```basic
+Imports javax.swing
+Imports com.tsbweb.server
+
 Public Class CustomerDialog
     Private root As JPanel = New JPanel()
     Private field As JTextField
@@ -3254,6 +3276,10 @@ The server is `tsbWEB`. What it does with your Swing:
 **1. `tsbWebApp` — one decision.**
 
 ```basic
+Imports java.awt
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+
 Public Class Application
     Implements tsbWebApp
 
@@ -3287,9 +3313,9 @@ Module Main
     Sub Main()
         Var config As tsbWebConfig = New tsbWebConfig()
         config.Port = 8099
-        config.Titel = "Customer management"
-        config.Thema = "FlatLightLaf"
-        config.LeerlaufMinuten = 30
+        config.Title = "Customer management"
+        config.Theme = "FlatLightLaf"
+        config.IdleMinutes = 30
 
         Var users As tsbWebFixedAuth = tsbWebFixedAuth.builder() _
                 .user("anna", "Anna Berger", "secret", java.util.Set.of("admin")) _
@@ -3309,7 +3335,7 @@ One line, and the program is a server you can double-click. `tsbWebStart.Go` doe
 
 `tsbWebStart.Serve(...)` does the same and returns instead of waiting. Without sign-in, `tsbWebStart.Go(config, New Application())` is enough.
 
-> `config.Thema` is **not decoration**: the server paints every component with this look and feel and sends the drawing, so this is what the browser shows. Pick a theme in the designer and this line is updated for you when the form is saved — preview and server cannot drift apart.
+> `config.Theme` is **not decoration**: the server paints every component with this look and feel and sends the drawing, so this is what the browser shows. Pick a theme in the designer and this line is updated for you when the form is saved — preview and server cannot drift apart.
 
 ### What an operator may change
 
@@ -3515,7 +3541,7 @@ Module Main
     SessionStatic Basket As java.util.ArrayList
 
     Sub Main()
-        ...
+        ' the server start from Chapter 18
     End Sub
 End Module
 ```
@@ -3702,7 +3728,7 @@ There is deliberately **no way to pre-fill one for everybody**. That would be a 
 ```basic
 Public Function createRoot(session As tsbWebSession) As Component
     If Main.Basket Is Nothing Then Main.Basket = New java.util.ArrayList()
-    ...
+    Return New MainForm().GetRootPane()
 End Function
 ```
 
@@ -3956,74 +3982,59 @@ thread and no `tsbWebSession`.
 
 ```basic
 ' Hung on the configuration before the server starts.
-config.addRoute("/forum", AddressOf Forum)                       ' GET and HEAD
-config.addPostRoute("/sign", AddressOf Sign)                     ' and POST, up to 64 KB
-config.addPostRoute("/api/documents", AddressOf Upload, 20 * 1024 * 1024)   ' POST up to 20 MB
+config.addRoute("/forum", AddressOf Forum)        ' GET and HEAD
+config.addPostRoute("/sign", AddressOf Sign)      ' and POST as well
 
 Private Function Forum(r As tsbWebRequest) As tsbWebReply
-    Return tsbWebReply.html("<h1>" + Html.Esc(r.getPath()) + "</h1>").withCacheSeconds(300)
+    Return tsbWebReply.html("<h1>" + r.getPath() + "</h1>").withCacheSeconds(300)
 End Function
 ```
 
-A route is given a `tsbWebRequest` and answers with a `tsbWebReply`. Longest prefix wins, so
-`/forum` and `/forum/rss` can both exist. `tsbWebSessionScope.current()` throws inside a route —
-that is the property being bought, not a limitation.
+A route is given a `tsbWebRequest` and answers with a `tsbWebReply`. **Longest prefix wins**, so
+`/forum` and `/forum/rss` can both exist, and a path may not be `/` or begin with `/tsb` — the
+server's own. `tsbWebSessionScope.current()` throws inside a route; that is the property being
+bought, not a limitation.
 
-**What a route may read**: the path, the query (`getQuery`, `getQueryInt`), the client address,
-a short list of headers, and for POST the body:
+**What a route may read.** Eight methods, and that is all of them:
 
 | | |
 |---|---|
-| `getBody()`, `getBodyAsText()` | the raw body — a JSON call |
-| `getForm("name")`, `getFormNames()` | a posted form, whether `x-www-form-urlencoded` or multipart |
-| `getPart("file")`, `getParts()` | an uploaded file as `tsbWebPart`: `getFileName()`, `getContentType()`, `getBytes()` |
-| `getUser()`, `hasRole("admin")`, `getBasicLogin()` | who is calling, when they say so — see below |
+| `getPath()`, `getMethod()` | which URL, and `GET`, `HEAD` or `POST` |
+| `getQuery(name)`, `getQueryInt(name, fallback)` | the query string, the second one parsed for you |
+| `getHeader(name)` | one of seven: `Accept`, `Accept-Language`, `If-None-Match`, `If-Modified-Since`, `User-Agent`, `Referer`, `Content-Type`. Case does not matter; anything else answers `""` |
+| `getClientAddress()` | who is asking — behind a proxy, after `ProxyTrusted` has been honoured |
+| `getBody()`, `getBodyAsText()` | the POST body as bytes or as UTF-8 text |
 
-**What a route may answer**: `tsbWebReply.html`, `text`, `json`, `xml`, `bytes(status, type, body)`,
-`redirect`, `notFound`, `notModified`, `unauthorized(realm)`, `forbidden`; on any of them
+**What a route may answer.** `tsbWebReply.html`, `text(body)`, `text(status, body)`, `json`, `xml`,
+`bytes(status, type, body)`, `redirect`, `notFound`, `notModified` — and on any of them
 `withHeader`, `withCacheSeconds`, `withETag`, `asDownload(name)`. A PDF shown inline:
 
 ```basic
 Return tsbWebReply.bytes(200, "application/pdf", pdf) _
-        .withHeader("Content-Disposition", "inline; filename=""vertrag.pdf""") _
+        .withHeader("Content-Disposition", "inline; filename=""contract.pdf""") _
         .withCacheSeconds(0)
 ```
 
-**The body limit is the route's own.** Sixty-four kilobytes by default — a form, a JSON body, a
-drawn signature. A route that takes a file names its limit when it is registered, up to 256 MB.
-A body above the limit is answered **413** without being read; it is never quietly cut short.
+A status other than 200 with your own body is `text(status, body)` or `bytes(status, …)`: there is
+no `unauthorized` or `forbidden` factory, so `text(401, "no")` is how one is written.
 
-**Credentials without a session.** A program calling an API sends `Authorization: Basic` on every
-request, and the route asks `r.getUser()`. The check runs against the same `tsbWebAuthProvider`
-that signs people into sessions, through the same attempt limiter keyed by address — so an API is
-not a way around the sign-in limits. `Nothing` means no credentials, wrong ones, or too many wrong
-ones lately; the route answers `tsbWebReply.unauthorized("api")`, which carries the
-`WWW-Authenticate` header a client needs.
+> **The body limit is 64 KB, server-wide and fixed**, and it is a *truncation*, not a refusal: a
+> larger body is cut at that mark and the route sees the first 64 KB with nothing to tell it that
+> more was sent. So a route is right for a form, a JSON call or a drawn signature, and wrong for a
+> file upload — and a route that could receive one should check the length it expects itself.
 
-```basic
-Private Function Documents(r As tsbWebRequest) As tsbWebReply
-    If Not r.hasRole("admin") Then Return tsbWebReply.unauthorized("api")
-    If r.getMethod() = "POST" Then
-        Dim file As tsbWebPart = r.getPart("file")
-        If file Is Nothing OrElse file.getSize() = 0 Then Return tsbWebReply.json(400, "{""error"":""no file""}")
-        ' ...
-    End If
-    Return tsbWebReply.json("{""status"":""ok""}")
-End Function
-```
+**Nothing identifies the caller**, and the whitelist above is how. `Cookie` is deliberately absent
+from it — a route that could read one would start identifying visitors, and the sessionless property
+would rot from the inside — and so is `Authorization`. A route is therefore for what may be public,
+or for what carries its own secret in the path: `/sign/<token>`. Anything that needs to know *who*
+is asking is a form, behind the sign-in.
 
-`Cookie` stays unreadable, and the difference is not a fine one. A cookie is *ambient*: the browser
-attaches it on its own, which is what makes a session out of it and what makes cross-site request
-forgery possible. Credentials in `Authorization` are sent by a program that decided to send them,
-on this request, and identify nobody beyond it.
+That cuts both ways, and the good half is worth naming: **cross-site request forgery does not arise
+on a route.** It trusts nothing the browser attaches by itself, because it reads nothing the browser
+attaches by itself. The session's CSRF token protects the mirrored application; a route needs none.
 
-**CSRF on a route, therefore, does not arise.** A route trusts nothing the browser adds by itself.
-A form posted to a route is authorised by what stands in it — a secret in the path such as
-`/sign/<token>`, or credentials the caller typed — and a page on another site cannot supply either.
-The session's own CSRF token protects the mirrored application; routes need none.
-
-**What a route cannot do**: stream — the reply is a value, built in memory; read a cookie; reach
-the session; or set one. A route that needs a session is a form.
+**What a route cannot do**: stream — the reply is a value, built in memory; read or set a cookie;
+reach the session. A route that needs any of those is a form.
 
 ### Capacity: the numbers
 
@@ -4446,7 +4457,7 @@ The designer is carried inside the plugin as a resource jar and unpacked into th
 
 ### The theme, and why it cannot drift
 
-The look and feel of a web application lives in `Sub Main` as `config.Thema` (Chapter 18). **Choose a theme in the designer, and saving the form updates that line** — so the preview and the server cannot disagree.
+The look and feel of a web application lives in `Sub Main` as `config.Theme` (Chapter 18). **Choose a theme in the designer, and saving the form updates that line** — so the preview and the server cannot disagree.
 
 Verified by measurement rather than by eye: background `#ffffff` / `#000000` light against `#333333` / `#eeeeee` dark, compared between the designer's canvas and the browser's page.
 

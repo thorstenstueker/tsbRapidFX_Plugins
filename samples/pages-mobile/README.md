@@ -1,28 +1,54 @@
-# pages-mobile
+# Two pages, on a phone
 
-Three screens on a phone: a list, a detail, and a picker that hands a choice back.
+The same two pages as the desktop and web samples beside this one, and the same
+question — but the answer is a third one, and the reason is the back gesture.
+
+## Running it
 
 ```bash
-rfxmobile swing   pages-mobile        # at your desk, in a phone-sized window
-rfxmobile ios     pages-mobile
-rfxmobile android pages-mobile
+rfxmobile swing .      # this machine, in a phone-sized window — start here
+rfxmobile android .    # build, install, start
+rfxmobile ios .        # needs a Mac with Xcode
 ```
 
-## What it shows
+`swing` draws exactly what the phone draws, because it is the same renderer. The
+platforms differ in their pixel count, not in their layout.
 
-**The stack.** `App.show` pushes, `App.back` pops, and the user's own back gesture pops it too —
-the Android button and the iOS edge swipe, with no wiring. That is what a phone has and the other
-two worlds do not.
+## What to look at
 
-**Passing something in:** a constructor. `New CustomerDetail(index)` — a form is an ordinary object
-and there is no other mechanism, because none is needed.
+`PageOne.rfx` and `PageTwo.rfx` are **designer forms**: open either one and the
+*Design* tab is there.
 
-**Getting something back:** a handler, in `CustomerPicker`. There is no `ShowDialog` returning a
-value on a phone, so the caller hands in a handler and the picker calls it **before** it pops
-itself — while it is still in front and the calling form is still underneath, which is exactly why
-that handler may set a label there.
+**On a desk there is no back gesture**, so `rfxmobile swing` puts it on **Escape** —
+and on the first page, where there is nothing to go back to, Escape ends the program.
+That is Android's own rule rather than an invention.
 
-## Note
+The page change is one line:
 
-The forms are written by hand, so that the whole of each is readable in one file. A real project
-draws them in the designer; the region below the line here is what the designer would have written.
+```basic
+App.show(second)
+```
+
+`App.show` **is** the stack. `App.depth()` says how deep it is and `App.back()` takes
+one off, and the back gesture — which belongs to the system, and which a phone user
+will use whether your program expects it or not — is wired to that. So one call gives
+you the page change and a working back at the same time.
+
+That is why **page two has no Back button.** It would be a second way to do what the
+gesture already does, and the two would have to agree for ever. `App.back()` is there
+for the cases where something other than a gesture has to go back — Cancel on a sheet,
+say — and this is not one of them.
+
+Note that `second` is a **field, created once**, not `New PageTwo()` at the click.
+`App.show` remembers the screen it built for an instance, so going back finds the page
+as the user left it; a fresh instance would be a fresh screen every time.
+
+## How this differs from the other two
+
+| | the page change |
+|---|---|
+| desktop | `ShowIn(window)` — the window is yours, so there is nothing more to it |
+| web | write into the session, then `rebuild()` |
+| **phone** | `App.show` — which is also what makes the back gesture work |
+
+Open all three side by side and the three models are clear in about a minute.

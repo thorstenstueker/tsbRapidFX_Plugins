@@ -1,29 +1,37 @@
-# pages-desktop
+# Two pages
 
-Three screens in one window — plus a second window and a modal dialog, because the desktop can do
-both and a phone cannot.
+One window, two pages, and the change between them. That is the whole sample.
 
-Open the folder in IntelliJ and press the green arrow, or:
+## Running it
+
+**File ▸ Open**, choose this directory, then the green arrow. Or from a terminal:
 
 ```bash
-rfxc -cp lib/flatlaf-3.7.2.jar -o build src/*.rfx
-java -cp build:lib/flatlaf-3.7.2.jar Main
+rfxc --project PagesDesktop.rfxproj --jar PagesDesktop.jar
+java -jar PagesDesktop.jar
 ```
 
-## What it shows
+## What to look at
 
-**Swapping one window.** A form is not a window — it is a panel with a `ShowIn(frame)` that fills
-one. So changing screens is handing the **same frame** to another form, and that is the whole of
-desktop navigation.
+`PageOne.rfx` and `PageTwo.rfx` are **designer forms** — open either one and the
+*Design* tab is there. Drag the button somewhere else, save, and the generated half of
+the file changes while the handler you wrote stays exactly as it was.
 
-**A second window**, for a detail beside the list rather than instead of it. With
-`DISPOSE_ON_CLOSE` and not `EXIT_ON_CLOSE`, which is the mistake everybody makes once: the main
-window ends the program when it closes, a second window must only close itself.
+The page change is one line:
 
-**A modal dialog**, in `CustomerPicker`. `setVisible(True)` does not return until the dialog closes,
-which is how the answer is read afterwards — the one thing a phone cannot do.
+```basic
+New PageTwo(window).ShowIn(window)
+```
 
-## Note
+`ShowIn` puts a form into a window that already exists, so changing page is building the
+other page and showing it. There is no router, no navigation stack and no framework —
+on the desktop there does not need to be one, because the window is yours.
 
-The forms are written by hand, so that the whole of each is readable. A real project draws them in
-the designer; `ShowIn` and `GetRootPane` are what the designer would have generated.
+On a phone there *is* a stack, because the back gesture is not yours; in a browser there
+is neither, because the server decides what to draw. Those are the mobile and web
+samples beside this one.
+
+## What it is not
+
+Not styled, not a starting point to copy wholesale, and deliberately not useful. It is
+the shortest honest version of one idea, which is what makes it readable in a minute.

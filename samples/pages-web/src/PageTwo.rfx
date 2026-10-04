@@ -1,0 +1,75 @@
+' Page two of two. It knows nothing about who sent the visitor here —
+' only what the session says.
+Imports java.awt.event
+Imports javax.swing
+Imports com.tsbweb.session
+
+Imports java.awt
+Public Class PageTwo
+
+    Public Sub New()
+        InitDesignerComponents()
+    End Sub
+
+    Private Sub OnBack(e As ActionEvent)
+        tsbWebSession.setValue("page", "one")
+        tsbWebSession.rebuild()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                            TSB RAPIDFX WEB LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=PageTwo root=AnchorPanel target=WEB platform=CUSTOM w=420 h=200 showIn=false
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblWhere parent=rootPane L=24 T=24 W=360 H=30
+    Private lblWhere As JLabel = New JLabel()
+
+    ' @tsbswx Button btnGo parent=rootPane L=24 T=80 W=160 H=32
+    Private btnGo As JButton = New JButton()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(420, 200))
+
+        lblWhere.setName("lblWhere")
+        lblWhere.setText("Page two")
+        lblWhere.setPreferredSize(New Dimension(360, 30))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblWhere, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblWhere, 24, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblWhere)
+
+        btnGo.setName("btnGo")
+        btnGo.setText("Back")
+        btnGo.addActionListener(AddressOf OnBack)
+        btnGo.setPreferredSize(New Dimension(160, 32))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnGo, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnGo, 80, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnGo)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+End Class

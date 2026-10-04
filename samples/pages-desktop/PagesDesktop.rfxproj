@@ -1,0 +1,9 @@
+' Two pages, and the change between them. Builds without an IDE as well:
+'     rfxc --project PagesDesktop.rfxproj --jar PagesDesktop.jar
+'     java -jar PagesDesktop.jar
+'
+' Name and Sources are what rfxc looks for. There is no Library line because this
+' sample needs no library — Swing is in the JDK.
+
+Name    = PagesDesktop
+Sources = src

@@ -1,0 +1,87 @@
+' Page one of two. Everything above the banner is yours; the designer writes it
+' back unchanged and only ever touches the region below.
+
+Imports tsb.mobile
+
+Public Class PageOne
+    Implements Form
+
+    ' Created once and kept, not made fresh on every click. App.show remembers
+    ' the screen it built for this instance, so coming back finds the page as the
+    ' user left it — a new instance would be a new screen every time.
+    Private second As PageTwo = New PageTwo()
+
+    ' The page change, and all of it. App.show puts the page on the stack, which
+    ' is what gives the back gesture something to take off again.
+    Private Sub OnNext(source As Button)
+        App.show(second)
+    End Sub
+
+    ' Handles OnFormBuilt - the body is yours.
+    Private Sub OnFormBuilt()
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbmob form class=PageOne device=PHONE w=390 h=844
+    Private screen As Screen = New Screen()
+
+    ' @tsbmob Label lblWhere L=24 T=24 R=24 W=160 H=40
+    Private lblWhere As Label = New Label()
+
+    ' @tsbmob Button btnNext L=24 T=24@lblWhere.BOTTOM R=24 W=160 H=48
+    Private btnNext As Button = New Button()
+
+    ' Builds this form's screen.
+    '
+    ' Called once, by the platform's entry point: the activity on Android, the
+    ' delegate on iOS, SwingApp on the desktop. It works only on instance fields,
+    ' so every instance of this form has widgets of its own.
+    Public Function build() As Screen
+        screen.setTitle("PageOne")
+
+        lblWhere.setName("lblWhere")
+        lblWhere.setText("Page one")
+        lblWhere.setTextSize(28)
+        lblWhere.setBold(True)
+        lblWhere.setHeight(40)
+        screen.add(lblWhere)
+
+        btnNext.setName("btnNext")
+        btnNext.setText("To page two")
+        btnNext.onClick(AddressOf OnNext)
+        btnNext.setHeight(48)
+        screen.add(btnNext)
+
+        ' One line per anchor: this edge of this widget is N from that edge of the
+        ' screen's safe area, or of another widget. Both edges of an axis anchored
+        ' means it stretches.
+        screen.anchor(lblWhere, Edge.LEFT, 24)
+        screen.anchor(lblWhere, Edge.TOP, 24)
+        screen.anchor(lblWhere, Edge.RIGHT, 24)
+        screen.anchor(btnNext, Edge.LEFT, 24)
+        screen.anchor(btnNext, Edge.TOP, 24, lblWhere, Edge.BOTTOM)
+        screen.anchor(btnNext, Edge.RIGHT, 24)
+
+        ' Your half of the file: fill a list, set an initial state, wire what the
+        ' designer cannot know about.
+        OnFormBuilt()
+
+        Return screen
+    End Function
+End Class

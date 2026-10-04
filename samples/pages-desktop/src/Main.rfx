@@ -1,28 +1,14 @@
-' Three screens in one window, a second window, and a modal dialog.
+' One window, two pages.
 '
-' The forms here are written by hand rather than drawn, so that the whole of each is on the screen.
-' A real project draws them — see the user guide, chapter 2 — and the half below the designer's
-' banner looks much like the build methods here.
-
+' Sub Main makes the window and shows the first page in it. Changing page means
+' showing the other one in the same window — which is what ShowIn does, and why
+' neither page needs to know about the other beyond its name.
 Imports javax.swing
-Imports java.awt
-Imports com.formdev.flatlaf
 
 Module Main
-
-    ' The one window every screen lives in. Shared, because every form needs to hand it on.
-    Shared Fenster As JFrame
-
     Sub Main()
-        ' Before the first window, always: UIManager only decides what is created after it.
-        FlatLightLaf.setup()
-
-        Fenster = New JFrame()
-        Fenster.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
-
-        ' The first screen puts itself into the window. Every later one does the same with the
-        ' same window, which is the whole of desktop navigation.
-        New CustomerList().ShowIn(Fenster)
+        Dim window As JFrame = New JFrame("Two pages")
+        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+        New PageOne(window).ShowIn(window)
     End Sub
-
 End Module

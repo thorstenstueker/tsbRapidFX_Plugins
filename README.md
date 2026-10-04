@@ -89,8 +89,7 @@ Needs **IntelliJ IDEA 2025.2** or newer, and a **JDK 21** or newer. Community Ed
 
 The complete manual is in [`docs/tsbRapidFX-Manual.md`](docs/tsbRapidFX-Manual.md) — the language,
 the Java class library, databases, Swing on the desktop and in the browser, web applications, the
-three designers, and packaging with tsbDeploy. There is an RTF beside it,
-[`docs/tsbRapidFX-Manual.rtf`](docs/tsbRapidFX-Manual.rtf), for Word, Pages or LibreOffice.
+three designers, and packaging with tsbDeploy.
 
 Every program in the manual was compiled by the real `rfxc` before it was printed, and the ones
 that produce output were run.

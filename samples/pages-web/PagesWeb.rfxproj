@@ -1,0 +1,14 @@
+' Two pages in a browser. Builds without an IDE as well:
+'     rfxc --project PagesWeb.rfxproj --jar PagesWeb.jar
+'     java -jar PagesWeb.jar      then open http://localhost:8099/
+'
+' Type is for the reader; rfxc ignores it. What makes this a web program is that
+' Sub Main starts a server instead of opening a window.
+
+Name    = PagesWeb
+Type    = WEB
+Sources = src
+
+Library = lib/server-0.1.0.jar
+Library = lib/session-0.1.0.jar
+Library = lib/mirror-0.1.0.jar

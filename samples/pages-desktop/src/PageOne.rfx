@@ -1,0 +1,88 @@
+' Page one of two. Everything above the banner is yours; the designer only ever
+' adds to this half — a missing import, an empty handler body — and never rewrites
+' what is already here.
+Imports java.awt.event
+Imports javax.swing
+
+Imports java.awt
+Public Class PageOne
+
+    Private window As JFrame
+
+    Public Sub New(frame As JFrame)
+        window = frame
+        InitDesignerComponents()
+    End Sub
+
+    ' The page change, and all of it: build the other page, show it in the same
+    ' window. No router, no stack, no framework.
+    Private Sub OnNext(e As ActionEvent)
+        New PageTwo(window).ShowIn(window)
+    End Sub
+
+
+
+
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+'
+'                                 DO NOT EDIT
+'                              TSB RAPIDFX LOGIC
+'
+'******************************************************************************
+'******************************************************************************
+'******************************************************************************
+
+
+
+
+    ' @tsbswx form class=PageOne root=AnchorPanel target=DESKTOP platform=CUSTOM w=420 h=200 showIn=true
+    Private rootPane As JPanel = New JPanel()
+    Private rootPaneLayout As SpringLayout = New SpringLayout()
+
+    ' @tsbswx Label lblWhere parent=rootPane L=24 T=24 W=360 H=30
+    Private lblWhere As JLabel = New JLabel()
+
+    ' @tsbswx Button btnNext parent=rootPane L=24 T=80 W=160 H=32
+    Private btnNext As JButton = New JButton()
+
+    ' Builds this form's interface.
+    '
+    ' Call it from the constructor. It works only on instance fields, so every
+    ' instance of this form has components of its own.
+    Private Sub InitDesignerComponents()
+        rootPane.setName("rootPane")
+        rootPane.setLayout(rootPaneLayout)
+        rootPane.setPreferredSize(New Dimension(420, 200))
+
+        lblWhere.setName("lblWhere")
+        lblWhere.setText("Page one")
+        lblWhere.setPreferredSize(New Dimension(360, 30))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, lblWhere, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, lblWhere, 24, SpringLayout.NORTH, rootPane)
+        rootPane.add(lblWhere)
+
+        btnNext.setName("btnNext")
+        btnNext.setText("To page two")
+        btnNext.addActionListener(AddressOf OnNext)
+        btnNext.setPreferredSize(New Dimension(160, 32))
+        rootPaneLayout.putConstraint(SpringLayout.WEST, btnNext, 24, SpringLayout.WEST, rootPane)
+        rootPaneLayout.putConstraint(SpringLayout.NORTH, btnNext, 80, SpringLayout.NORTH, rootPane)
+        rootPane.add(btnNext)
+    End Sub
+
+    ' The root panel of this form.
+    Public Function GetRootPane() As JPanel
+        Return rootPane
+    End Function
+
+    ' Shows this form in the given frame. No statics: this instance, this window.
+    Public Sub ShowIn(frame As JFrame)
+        frame.setTitle("PageOne")
+        frame.setContentPane(rootPane)
+        frame.setSize(420, 200)
+        frame.setLocationRelativeTo(Nothing)
+        frame.setVisible(True)
+    End Sub
+End Class

@@ -1,36 +1,39 @@
-# pages-web
+# Two pages, in a browser
 
-The same three screens as a server. The forms are Swing forms — the server paints them and sends the
-drawing.
+The same two pages as the desktop sample next door, and the same designer — what
+differs is the one thing worth seeing: **how a page changes when there is no window.**
+
+## Running it
+
+The three tsbWEB jars belong in `lib/`; they come with the plugin. Then:
 
 ```bash
-rfxc -cp "lib/*" -o build src/*.rfx
-java -cp "build:lib/*" Main
+rfxc --project PagesWeb.rfxproj --jar PagesWeb.jar
+java -jar PagesWeb.jar
 ```
 
-Then `http://localhost:8099/` — sign in with **anna / secret**.
+Open `http://localhost:8099/`. What the browser shows is Swing's own drawing, painted
+on the server and sent — not HTML built from your form.
 
-## What it shows
+## What to look at
 
-**There is no navigation.** No router, no URL per screen, no navigation call. One method —
-`createRoot` — decides what this user is looking at, and it is asked again whenever something
-changes:
+`PageOne.rfx` and `PageTwo.rfx` are **designer forms**: open either and the *Design*
+tab is there, exactly as on the desktop.
+
+There is **no navigation**. `createRoot` in `Main.rfx` is asked which page to draw, and
+it is asked again on every rebuild. So changing page is two lines, and both are needed:
 
 ```basic
-tsbWebSession.setValue("screen", "detail")
+tsbWebSession.setValue("page", "two")
 tsbWebSession.rebuild()
 ```
 
-Both halves are needed. Writing into the session alone changes nothing on the screen.
+Without the rebuild, `createRoot` is never asked again and the browser goes on showing
+the old page. That is the single most common surprise in a web program here, which is
+why this sample is built around it.
 
-**Why it works this way:** a browser can reload, go back, open a second tab, or sit for an hour and
-then click. A navigation stack would have to answer all of those, and every answer would be a guess
-about what the user meant. One question — *what should this user see now?* — has none of those
-problems, and a reload produces the same screen because it produces the same answer.
+## Why the session and not a field
 
-**Passing something to the next screen** is the session, for the same reason: there is no parameter
-because there is no call.
-
-**`SessionStatic` and `Shared`** are declared together at the top of `Main.rfx`. One is per user;
-the other is one value for everybody, which is right for a price list and a data leak for anything
-belonging to a person.
+A `Shared` field would be one value for **every** visitor at once: the second person to
+click would move the first person's page. The session is per visitor. On a desktop that
+difference is invisible; in a browser it is the whole game.
