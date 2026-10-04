@@ -7,6 +7,14 @@ installer. Desktop, web, Android, iOS and packaging — from the same `.rfx` fil
 > **Downloads are under [Releases](../../releases).** This repository holds the documentation and
 > the issue tracker; the plugin itself is published as a release file.
 
+## Documentation
+
+| | |
+|---|---|
+| **[The user guide](docs/guide/README.md)** | Install, first project, the designer, **switching between pages on desktop, web and mobile**, a FAQ and troubleshooting. Start here |
+| **[The complete manual](docs/tsbRapidFX-Manual.md)** | 27 chapters: the language, the Java class library, databases, Swing, the web server, the three designers, mobile, packaging |
+| **[Samples](samples/README.md)** | Three runnable projects showing the *same program* on desktop, web and mobile — so the three navigation models can be read side by side |
+
 ---
 
 ## The designer

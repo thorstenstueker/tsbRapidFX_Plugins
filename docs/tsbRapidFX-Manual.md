@@ -20,8 +20,8 @@ This manual describes tsbRapidFX as it stands. Every program in it was compiled 
 | IV | 14–17 | User interface: Swing, windows, dialogs, tables |
 | V | 18–21 | Web applications, variables, SessionStatic, the server |
 | VI | 22–23 | The designers: desktop and web |
-| VII | 24–25 | Mobile: the designer, building and running on a device |
-| VIII | 26 | Packaging into native installers with tsbDeploy |
+| VII | 24–26 | Mobile: the designer, writing a program, building and running on a device |
+| VIII | 27 | Packaging into native installers with tsbDeploy |
 
 ---
 
@@ -4471,108 +4471,297 @@ What you get is a project that **runs** on the first press: sign in, count, sign
 
 # Part VII — Mobile
 
-The same language, the same compiler and a designer of the same shape now reach the phone and the
-tablet as well. A mobile form is a `.rfx` file like any other; what differs is the banner at its
-head (`' @tsbmob`), the API it binds against (`tsb.mobile`) and the three backends that draw it —
-`android.widget` with ConstraintLayout, UIKit through MobiVM for iOS, and, for the preview and for
-a desktop run, Swing through the ported `java.desktop`.
+The same language, the same compiler and a designer of the same shape reach the phone and the
+tablet. A mobile form is a `.rfx` file like any other; what differs is the banner at its head
+(`' @tsbmob`), the API it binds against (`tsb.mobile`) and the backends that draw it.
 
 Until 19.09.2026 this lived in a plugin of its own for Android Studio. It does not any more:
-**there is one plugin, in IntelliJ IDEA, and mobile sits in it beside desktop and web.** One
-`New RapidFX Project…`, one *Run* button, one editor that knows `.rfx`.
+**there is one plugin, in IntelliJ IDEA, and mobile sits in it beside desktop and web.**
+
+**Since 01.10.2026 a mobile program is compiled ahead of time on both platforms.** There is no
+Dalvik bytecode, no JIT and no second class library: `rfxmobile` produces machine code for arm64,
+and what runs on the phone is the same runtime on both. That is what made the rest of this part
+possible — the locale data, the network, concurrency — because all of it is one class library now
+rather than two that had to agree.
 
 ## 24 The mobile designer
 
-**tsbDesignerMobile** is the mobile form designer. It is the same program as the desktop designer
-in all but its catalogue and its backends: a palette on the left, the form in the middle,
+**tsbDesignerMobile** is the mobile form designer: a palette on the left, the form in the middle,
 everything about the selected component on the right, and what it writes is a plain `.rfx` file
 that reads back byte for byte.
 
 ### A window of its own
 
-The designer opens in a window of its own, not as an editor tab — and that is not a matter of
-taste. `UIManager` applies to the whole JVM, so a canvas embedded in the IDE cannot install a
-look-and-feel without repainting the IDE around itself; it would inevitably paint in whatever the
-IDE wears. With `renderer = swing` it is FlatLaf that draws on the device, through the same
-`java.desktop` port — so a canvas in the IDE's appearance would show not a different picture but a
-wrong one. In its own JVM the designer installs FlatLaf properly and the canvas is the same drawing
-the device gets.
+The designer opens in a window of its own, not as an editor tab, and that is not a matter of taste.
+`UIManager` applies to the whole JVM, so a canvas embedded in the IDE cannot install a look and feel
+without repainting the IDE around itself. Since it is FlatLaf that draws on the device — through the
+same `java.desktop` port — a canvas in the IDE's appearance would show not a different picture but
+a wrong one. In its own JVM the designer installs FlatLaf properly and the canvas is the drawing the
+device gets.
 
-The designer is carried inside the plugin as a resource jar and unpacked into the IDE's system
-directory on first use, keyed by the content's own SHA-256. If a designer ever behaves like an
-older version, look in the IDE cache directory before looking at the source.
+### The widgets
 
-### The device question comes first
+`Label`, `Button`, `TextField`, `TextArea`, `Dropdown`, `ListBox`, `Table`, `Switch`, `Slider`,
+`ProgressBar`, `Picture`, `DatePicker`, `TimePicker`, `Calendar`, `CalendarView` and `Signature` —
+the last being a canvas somebody signs with a finger, which is why it is in a business toolkit.
 
-A new form asks two things — name and device — and the device is asked first, because afterwards
-it can only be answered by redrawing every form. Everything else — the name, the package — is one
-line in `rfxmobile.properties` and changeable at any time.
+Anchors work as they do on the desktop: an anchor is a rule about what happens when the screen
+changes size, not a position. `LEFT 16` keeps sixteen from the edge; `LEFT 16` and `RIGHT 16`
+together make the widget stretch.
 
-Phone, tablet and large-phone geometries differ in size and in their safe areas; the designer's
-canvas matches the project's device and orientation, so the preview is the same shape the device
-is. Choose **portrait** or **landscape** at creation, and, if you want, that the app is locked to
-the one orientation.
+## 25 Writing a mobile program
 
-### One catalogue, three canvases
+### A form
 
-On the form are a label and a button to begin with — two widgets rather than none, so that both
-halves of the file show at once: a property set below the banner and an empty handler body above
-it. What the catalogue offers is drawn identically on all three backends; where a backend cannot do
-a thing, the designer does not offer it. Colours are one place this was earned rather than assumed:
-a component's `background` and its foreground `color` are honoured on Android, on iOS and in the
-Swing preview alike, verified on the device rather than by eye.
+```basic
+Imports tsb.mobile
 
-## 25 Building and running on a device
+Public Class CustomerList
+    Implements Form
+
+    Private Sub OnFormBuilt()
+        lblTitle.setText("Customers")
+        loadCustomers()
+    End Sub
+
+    Private Sub OnNewClick(source As Button)
+        App.show(New CustomerDetail(0))
+    End Sub
+End Class
+```
+
+`OnFormBuilt` runs once, after the widgets exist and before the first frame: anything set there is
+in the first picture. Handler stubs are written by the designer — a button named `btnNew` gets
+`Private Sub OnNewClick(source As Button)`, once, above the banner, and from then on it is yours.
+
+### Moving between screens
+
+A phone shows one screen at a time and has a back gesture the user expects to work. So mobile has
+what the other two worlds do not: **a stack**.
+
+```basic
+App.show(New CustomerDetail(nummer))   ' push
+App.back()                             ' pop; False when there is nothing to go back to
+App.current()                          ' the form in front
+App.depth()                            ' how deep the stack is
+App.forget(form)                       ' build it again next time it is shown
+```
+
+`App.back()` is also what the Android back button and the iOS edge swipe do, with nothing to wire.
+That is the whole reason the stack exists.
+
+A form is built once and remembered, so coming back to a list brings it back with its scroll
+position and its text. Passing something in is a constructor, because a form is an ordinary object:
+`New CustomerDetail(4711)`.
+
+**Getting an answer back** has no `ShowDialog` that returns a value — a phone has no modal dialogs
+in that sense. The caller hands in a handler and the picker calls it before it pops itself, while
+it is still in front and the calling form is still underneath, which is exactly why that handler may
+set a label there.
+
+### Data
+
+A phone carries its own SQLite database:
+
+```basic
+Data.useDriverNamed("SQLite.JDBCDriver")
+Dim c As Connection = DriverManager.getConnection("jdbc:sqlite:" + Data.file("erp.db"))
+```
+
+`Data.file(name)` answers the full path in the application's private directory — the one place both
+platforms let a program write, and the one removed when the program is uninstalled.
+
+**`useDriverNamed` and not `useDriver`**: ahead-of-time compilation keeps the classes a program
+*reaches*, and a driver loaded by name is reached by nobody. The build is told for you when a form
+touches `java.sql`.
+
+### Something that takes a while
+
+**Form code runs on the thread that paints the screen.** A form that asks a server for a list and
+waits has stopped the screen for as long as the server takes — and Android kills an application that
+holds that thread for a few seconds, with a dialogue the user reads as a crash. There is no version
+of "just this once": the first slow connection on a train decides it.
+
+```basic
+Work.text( _
+    Function() As String
+        Return fetch("https://erp.example.com/customers")
+    End Function, _
+    Sub(answer As String)
+        lblStatus.setText(answer)
+    End Sub, _
+    Sub(e As Throwable)
+        lblStatus.setText("Server not reachable")
+    End Sub)
+```
+
+The first lambda runs away from the screen and **must not touch a widget**. The other two run where
+widgets are allowed.
+
+| | |
+|---|---|
+| `Work.text(job, done, failed)` | Work producing a string, which is most of it |
+| `Work.run(job, done, failed)` | Anything else, with an `Object` and a cast |
+| `Work.chain(first, second, done, failed)` | Two steps back to back on one thread, one answer |
+| `Work.all(done, failed, job…)` | Several at once; results in the order you asked for them |
+| `Work.whenBusy(watcher)` | For a spinner — told on the edges only, not per call |
+| `Work.pending()` | How many are outstanding |
+
+Two shapes rather than one generic because RapidFX has no type parameters: the choice was between
+one method that casts always and two where the common case does not.
+
+**An answer belongs to the form that asked.** Leave a form with `App.back` while its fetch is in
+flight and the handler is not called — its screen is gone and writing to a label on it would be
+writing where nobody will look. A form merely *covered* by another is still answered, so that it is
+up to date when it comes back into view. Nothing is cancelled in the sense of stopping: a thread
+already running finishes, because interrupting work halfway is how a half-written row gets into a
+database.
+
+### The network
+
+Ordinary `java.net`. There is no `HttpClient` — the runtime comes from Android's class library,
+where `java.net.http` does not exist — so `HttpURLConnection` is the way, and **always with both
+timeouts set**, because without them a dead server holds a background thread for as long as the
+operating system's default, which on a mobile network is minutes.
+
+```basic
+Dim c As HttpURLConnection = CType(u.openConnection(), HttpURLConnection)
+c.setConnectTimeout(5000)
+c.setReadTimeout(5000)
+```
+
+HTTPS needs no configuration: the trust store carries its root certificates — 161 of them on iOS,
+149 on Android — and `android.permission.INTERNET` is written into the manifest for you, because
+the build sees that your program opens a connection.
+
+### Where the device is
+
+```basic
+Location.whenKnown(AddressOf OnPlaceFound)
+
+Private Sub OnPlaceFound(place As Place)
+    If place Is Nothing Then
+        lblWhere.setText("No location: " + Location.access().name())
+    Else
+        lblWhere.setText(place.latitude() & ", " & place.longitude())
+    End If
+End Sub
+```
+
+`whenKnown` asks once; `watch`/`stop` follow continuously; `last()` answers the last known position
+without asking. **Nothing here throws**, including at a desk where there is no location: `access()`
+says `UNAVAILABLE`, `last()` is `Nothing`, and a handler is called once with `Nothing`. A form
+written against this runs while you are building it, which is where you are building it.
+
+`access()` is an enum and not a boolean because "not asked yet" is a different state from "refused",
+and a form handles them differently.
+
+### Dates, numbers and languages
+
+Since **27.5.0** the runtime carries real locale data — 28 languages, 783 locales:
+
+```basic
+NumberFormat.getInstance(Locale.GERMAN).format(1234.5)   ' 1.234,5
+DateFormat.getDateInstance(MEDIUM, Locale.GERMANY)       ' 15.03.2026
+Locale.GERMAN.getDisplayLanguage(Locale.GERMAN)          ' Deutsch
+```
+
+Before that it shipped ICU's minimal package — one locale, `en` — and a German invoice came out as
+`1,234.5`. It went unnoticed for years because ICU compiles the *character* properties into its code
+rather than its data, so `Character.isLetter` was right throughout and only the locale-sensitive half
+was wrong.
+
+`java.time` works, including time zones, which needed their own fix in 27.4.0.
+
+## 26 Building and running on a device
 
 ### The Run button, and the target beside it
 
-**Run** sits in the toolbar beside the button the IDE starts its own projects with. One click
-builds the project and runs it; the little arrow next to it switches between **desktop**, **Android**
-and **iOS** and remembers the choice per project — because whoever works on a layout all afternoon
-runs on the desktop, where a round takes a second instead of a simulator start.
+**Run** sits in the toolbar beside the button the IDE starts its own projects with. One click builds
+and runs; the arrow next to it switches between **desktop**, **Android** and **iOS** and remembers
+the choice per project — because whoever works on a layout all afternoon runs on the desktop, where
+a round takes a second instead of a simulator start.
 
 What is built is the **directory**, not the file: a mobile project is a folder of `.rfx` files, and
-which of them starts is the project's answer (`rfxmobile.properties`), not the editor's. The build
-runs line by line into a console with a progress indicator and a cancel button. The work is done by
-`rfxmobile`, the mobile toolchain, which the plugin carries beside its own jar.
+which of them starts is the project's answer (`rfxmobile.properties`), not the editor's.
 
-The starter project runs on the first press — type a name, forward, back — in about **2 s on the
-desktop, 3 s on Android and 19 s on iOS**, all three out of the same folder.
+On the command line:
+
+```bash
+rfxmobile swing   MyApp        # a phone-sized window on this machine
+rfxmobile android MyApp
+rfxmobile ios     MyApp --device "iPhone 17"
+rfxmobile android MyApp --release
+```
+
+### The project file
+
+```properties
+name    = My App
+form    = SignIn
+package = de.example.myapp
+
+titlebar    = off
+theme       = Dark
+orientation = portrait
+fit         = page
+```
+
+The manifest, the `Info.plist` and the entry point are **generated** from this and from the program
+itself. A file of your own beside them wins.
+
+### Permissions, derived rather than written
+
+The build reads the constant pool of your compiled forms and writes what it finds:
+
+| what your program uses | Android | iOS |
+|---|---|---|
+| `tsb.mobile.Location` | `ACCESS_FINE_LOCATION` | `NSLocationWhenInUseUsageDescription` |
+| `java.net.URL`, `Socket`, `InetAddress`, … | `INTERNET` | — |
+
+The one thing that cannot be derived is Apple's reason text, which a reviewer reads. A usable default
+is generated and one line in `rfxmobile.properties` replaces it:
+
+```properties
+reason.location = Shows the delivery address on a map while you are using the app.
+```
+
+If you bring your own `AndroidManifest.xml`, **yours wins** — and then nothing can be inserted into
+it, so the build warns rather than being silent.
 
 ### Android, without Android Studio
 
-Android needs the Android SDK, but not Android Studio. **Tools ▸ Set Up Android SDK…** installs it,
-with the licences shown one by one and an emulator device; the SDK is found through `ANDROID_HOME`,
-`ANDROID_SDK_ROOT` or the default folder on each OS. **Run on Android** offers to start the emulator
-when nothing is connected.
+Android needs the Android SDK, not Android Studio. **Tools ▸ Set Up Android SDK…** installs it, with
+the licences shown one by one and an emulator device; the SDK is found through `ANDROID_HOME`.
 
-Two rules for the emulator, each of which costs an afternoon if unknown:
+### iOS
 
-- **Exactly one Android device may be running** — not two emulators, and not an emulator beside a
-  phone on a cable. The install step does not name a device to `adb`, so with two it cannot know
-  which is meant and the build waits for an unambiguity that will not come.
-- **Whoever switches the emulator off with the power button must close its window too.** The power
-  button switches the device off, not the emulator; the window keeps the AVD occupied, and the next
-  build waits for a device that will not come up.
+The simulator needs no account. A device and the App Store need a signing identity, which is Apple's
+rule. **Publishing for iOS needs a Mac** — a decision rather than an omission: a build server for
+other people's platforms is two days of maintenance per provider per year, and ten providers are a
+month. Android releases from Windows, macOS and Linux alike.
 
-The desktop simulation has neither problem: it is an ordinary window with a close button, and
-several side by side do not disturb each other.
-
-### iOS is built on a Mac
-
-The iOS build calls `xcrun`, `codesign` and the simulator, and Apple's SDK licence permits Apple
-hardware only — so iOS builds on a Mac and nowhere else, and says so in one sentence at the start
-rather than after a long download. MobiVM's ahead-of-time compiler is 127 MB and is fetched on the
-first iOS build into `~/.rfxmobile/`, once per machine, against a published checksum; it does not
-ship in the plugin. Android, the desktop and the web build on any machine as they are.
-
-### A signed APK or IPA
+### Signing and the stores
 
 Below the run actions, kept apart because it is a different intent, sit **Build a signed APK** and
-**Build a signed IPA**: a release build takes a signing key and produces a file somebody uploads.
-The password is asked for in a dialog, not on a console — under an IDE there is no console to ask
-through. Where the password comes from, and where it must never be kept, is its own note: a signing
-key belongs in an environment variable or a keychain, never in the project.
+**Build a signed IPA**. The password is asked for in a dialog, not on a console — under an IDE there
+is no console to ask through. A signing key belongs in an environment variable or a keychain, never
+in the project.
+
+Icons are generated from one source image in every size both stores ask for, including the 1024
+marketing icon App Store Connect wants at upload.
+
+### What a mobile program does not have yet
+
+Said plainly, because finding out in the middle of a project is worse:
+
+* **Camera, barcode, sensors, Bluetooth.** Location is the only hardware with a facade so far. The
+  way in — the order channel between the two VMs on Android — is built, and the rest is repetition
+  of the same pattern.
+* **Some of `java.base`**: about 318 members of classes that do exist, mostly in corners a business
+  program does not reach — `Process`, `ClassLoader`, `JarFile`. `rfxc` tells you at *compile* time
+  rather than letting you find out on the device.
+* **`java.lang.classfile`, `java.lang.foreign`, the module system** — absent and staying absent.
 
 ---
 
@@ -4584,7 +4773,7 @@ AppImage — with a Java runtime inside it, so that whoever receives it needs no
 first. That step is **tsbDeploy**, and since it is carried in the same plugin, it is one menu away
 from the program you just built.
 
-## 26 Packaging with tsbDeploy
+## 27 Packaging with tsbDeploy
 
 ### What it produces
 

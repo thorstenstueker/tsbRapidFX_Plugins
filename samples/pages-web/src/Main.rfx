@@ -1,0 +1,78 @@
+' The same three screens as a server. Open http://localhost:8099/ and sign in: anna / secret
+'
+' Everything about the forms is the same as on the desktop — they are Swing forms, and the server
+' paints them and sends the drawing. What is different is here, in these forty lines, and in how
+' you change screens: there is no navigation call. See createRoot below.
+
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+
+Module Main
+
+'******************************************************************************
+'                             SESSION STATICS
+'
+'   One per signed-in user, unreachable from any other session. A plain Shared
+'   would be one value for EVERYBODY — right for a price list, a data leak for
+'   anything belonging to a person.
+'
+'   Declared here and nowhere else, so that both kinds are on one screen.
+'******************************************************************************
+
+    SessionStatic Schirm As String
+
+    Sub Main()
+        Dim config As tsbWebConfig = New tsbWebConfig()
+        config.Port = 8099
+        config.Title = "Pages"
+        config.Theme = "FlatLightLaf"
+        config.IdleMinutes = 30
+
+        ' A fixed list while you are building. In production this is tsbWebJdbcAuth against a
+        ' database. The password is hashed even here, because a fixed list ends up inside a jar
+        ' and a jar opens with any zip tool.
+        Dim users As tsbWebFixedAuth = tsbWebFixedAuth.builder() _
+                .user("anna", "Anna Berger", "secret", java.util.Set.of("admin")) _
+                .build()
+
+        tsbWebStart.Go(config, New Application(), users)
+    End Sub
+
+End Module
+
+
+' The one decision a web program makes: which form is this user looking at.
+'
+' There is no router, no URL per screen and no navigation call. To change screens, write into the
+' session and ask for a rebuild — createRoot is then asked again and decides afresh:
+'
+'     tsbWebSession.setValue("screen", "detail")
+'     tsbWebSession.rebuild()
+'
+' Why it works this way: a browser can reload, go back, open a second tab, or sit for an hour and
+' then click. A navigation stack would have to answer all of those and every answer would be a
+' guess. One question — what should this user see now? — has none of those problems, and a reload
+' produces the same screen because it produces the same answer.
+Public Class Application
+    Implements tsbWebApp
+
+    Public Function title() As String
+        Return "Pages"
+    End Function
+
+    ' Once per session, and again on every screen change. On the session thread, with the session
+    ' in reach. A new instance every time, never a shared one: two users editing the same
+    ' JTextField would watch each other type.
+    Public Function createRoot(session As tsbWebSession) As java.awt.Component
+        If Not session.isSignedIn() Then
+            Return New SignInForm().GetRootPane()
+        End If
+
+        Dim welcher As Object = session.getValue("screen")
+        If welcher IsNot Nothing And CStr(welcher) = "detail" Then
+            Return New CustomerDetail().GetRootPane()
+        End If
+        Return New CustomerList().GetRootPane()
+    End Function
+
+End Class

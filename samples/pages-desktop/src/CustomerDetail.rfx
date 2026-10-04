@@ -1,0 +1,47 @@
+' The second screen. Built with what it is about, and able to go back.
+
+Imports javax.swing
+Imports java.awt
+
+Public Class CustomerDetail
+
+    Private nummer As Integer
+    Private wurzel As JPanel = New JPanel()
+    Private btnZurueck As JButton = New JButton("Back to the list")
+
+    Public Sub New(welcher As Integer)
+        nummer = welcher
+    End Sub
+
+    ' Going back is the same swap in the other direction: a new list form into the same window.
+    '
+    ' A new one, so the list is built afresh. To come back to the list *as it was* — same scroll
+    ' position, same selection — keep the instance in a Shared field and show that one again.
+    Private Sub OnZurueck()
+        Dim fenster As JFrame = CType(SwingUtilities.getWindowAncestor(wurzel), JFrame)
+        New CustomerList().ShowIn(fenster)
+    End Sub
+
+    Public Function GetRootPane() As JPanel
+        wurzel.setLayout(New BorderLayout(8, 8))
+        wurzel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12))
+
+        Dim text As JLabel = New JLabel("<html><h2>" + CustomerList.Namen(nummer) _
+                                        + "</h2>Customer number " + CStr(nummer + 1) + "</html>")
+        wurzel.add(text, BorderLayout.CENTER)
+
+        btnZurueck.addActionListener(Sub(e) OnZurueck())
+        wurzel.add(btnZurueck, BorderLayout.SOUTH)
+
+        Return wurzel
+    End Function
+
+    Public Sub ShowIn(frame As JFrame)
+        frame.setTitle(CustomerList.Namen(nummer))
+        frame.setContentPane(GetRootPane())
+        frame.setSize(420, 260)
+        frame.setLocationRelativeTo(Nothing)
+        frame.setVisible(True)
+    End Sub
+
+End Class

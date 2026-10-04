@@ -1,0 +1,95 @@
+' The first screen. Two ways out of it: swap this window, or open a second one.
+
+Imports javax.swing
+Imports java.awt
+
+Public Class CustomerList
+
+    Public Shared Namen(2) As String
+
+    Shared Sub New()
+        Namen(0) = "Berger GmbH"
+        Namen(1) = "Clausen AG"
+        Namen(2) = "Dorn & Sohn"
+    End Sub
+
+    Private wurzel As JPanel = New JPanel()
+    Private liste As JList = New JList()
+    Private btnDetail As JButton = New JButton("Open the detail")
+    Private btnZweites As JButton = New JButton("Open in a second window")
+    Private btnDialog As JButton = New JButton("Pick one (modal dialog)")
+    Private lblGewaehlt As JLabel = New JLabel(" ")
+
+    ' Swapping the window: the same frame, a different form. The old form is dropped and
+    ' collected with everything in it — which is right here and wrong when somebody was typing,
+    ' in which case you keep the instance instead.
+    Private Sub OnDetail()
+        If liste.getSelectedIndex() < 0 Then
+            Return
+        End If
+        New CustomerDetail(liste.getSelectedIndex()).ShowIn(Main.Fenster)
+    End Sub
+
+    ' A second window, for a detail beside the list rather than instead of it.
+    '
+    ' DISPOSE_ON_CLOSE and not EXIT_ON_CLOSE, which is the mistake everybody makes once: the main
+    ' window ends the program when it closes, a second window must only close itself.
+    Private Sub OnZweites()
+        If liste.getSelectedIndex() < 0 Then
+            Return
+        End If
+        Dim zweites As JFrame = New JFrame()
+        zweites.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE)
+        New CustomerDetail(liste.getSelectedIndex()).ShowIn(zweites)
+    End Sub
+
+    ' A modal dialog. setVisible does not return until the dialog is closed, which is how the
+    ' answer is read afterwards — the one thing a phone cannot do and this can.
+    Private Sub OnDialog()
+        Dim waehler As CustomerPicker = New CustomerPicker()
+        Dim dialog As JDialog = New JDialog(Main.Fenster, "Pick a customer", True)
+        dialog.setContentPane(waehler.GetRootPane())
+        dialog.setSize(360, 320)
+        dialog.setLocationRelativeTo(Main.Fenster)
+        dialog.setVisible(True)
+
+        If waehler.Gewaehlt >= 0 Then
+            lblGewaehlt.setText("Picked: " + Namen(waehler.Gewaehlt))
+        Else
+            lblGewaehlt.setText("Nothing picked")
+        End If
+    End Sub
+
+    Public Function GetRootPane() As JPanel
+        wurzel.setLayout(New BorderLayout(8, 8))
+        wurzel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12))
+
+        liste.setListData(Namen)
+        liste.setSelectedIndex(0)
+        wurzel.add(New JScrollPane(liste), BorderLayout.CENTER)
+
+        Dim knoepfe As JPanel = New JPanel(New GridLayout(4, 1, 6, 6))
+        btnDetail.addActionListener(Sub(e) OnDetail())
+        btnZweites.addActionListener(Sub(e) OnZweites())
+        btnDialog.addActionListener(Sub(e) OnDialog())
+        knoepfe.add(btnDetail)
+        knoepfe.add(btnZweites)
+        knoepfe.add(btnDialog)
+        knoepfe.add(lblGewaehlt)
+        wurzel.add(knoepfe, BorderLayout.SOUTH)
+
+        Return wurzel
+    End Function
+
+    ' What the designer generates for a form: title, size, position, and the content pane.
+    ' A form is not a window — it fills one it is handed, which is what lets the same form sit in
+    ' a frame here and in a dialog three lines further down.
+    Public Sub ShowIn(frame As JFrame)
+        frame.setTitle("Customers")
+        frame.setContentPane(GetRootPane())
+        frame.setSize(520, 420)
+        frame.setLocationRelativeTo(Nothing)
+        frame.setVisible(True)
+    End Sub
+
+End Class

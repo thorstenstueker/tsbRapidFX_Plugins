@@ -1,0 +1,4 @@
+# A sample is source. What a build makes is not.
+build/
+out/
+*.class

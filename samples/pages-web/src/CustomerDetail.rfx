@@ -1,0 +1,40 @@
+' The detail. It reads what the list left in the session — there is no other way in, and no other
+' way is needed.
+
+Imports javax.swing
+Imports java.awt
+Imports com.tsbweb.session
+
+Public Class CustomerDetail
+
+    Private wurzel As JPanel = New JPanel()
+
+    ' Going back is the same two lines in the other direction. There is no stack to pop, because
+    ' there is no stack: the session says what to show and this changes what it says.
+    Private Sub OnZurueck()
+        tsbWebSession.setValue("screen", "list")
+        tsbWebSession.rebuild()
+    End Sub
+
+    Public Function GetRootPane() As JPanel
+        wurzel.setLayout(New BorderLayout(8, 8))
+        wurzel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12))
+
+        Dim nummer As Integer = 0
+        Dim gespeichert As Object = tsbWebSession.getValue("customer")
+        If gespeichert IsNot Nothing Then
+            nummer = CInt(gespeichert)
+        End If
+
+        wurzel.add(New JLabel("<html><h2>" + CustomerList.Namen(nummer) _
+                              + "</h2>Customer number " + CStr(nummer + 1) + "</html>"),
+                   BorderLayout.CENTER)
+
+        Dim btn As JButton = New JButton("Back to the list")
+        btn.addActionListener(Sub(e) OnZurueck())
+        wurzel.add(btn, BorderLayout.SOUTH)
+
+        Return wurzel
+    End Function
+
+End Class

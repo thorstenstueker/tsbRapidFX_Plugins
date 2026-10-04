@@ -1,0 +1,46 @@
+' Signing in. The only screen that exists before there is a user.
+
+Imports javax.swing
+Imports java.awt
+Imports com.tsbweb.session
+
+Public Class SignInForm
+
+    Private wurzel As JPanel = New JPanel()
+    Private txtName As JTextField = New JTextField("anna")
+    Private txtKennwort As JPasswordField = New JPasswordField("secret")
+    Private lblHinweis As JLabel = New JLabel(" ")
+
+    Private Sub OnAnmelden()
+        If tsbWebSession.signIn(txtName.getText(), txtKennwort.getPassword()) Then
+            ' Signed in, so what createRoot answers has changed. Ask it again.
+            tsbWebSession.rebuild()
+        Else
+            lblHinweis.setText("Wrong name or password")
+        End If
+    End Sub
+
+    Public Function GetRootPane() As JPanel
+        wurzel.setLayout(New GridBagLayout())
+
+        Dim feld As JPanel = New JPanel(New GridLayout(5, 1, 0, 6))
+        feld.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16))
+        feld.add(New JLabel("Name"))
+        feld.add(txtName)
+        feld.add(New JLabel("Password"))
+        feld.add(txtKennwort)
+
+        Dim btn As JButton = New JButton("Sign in")
+        btn.addActionListener(Sub(e) OnAnmelden())
+        feld.add(btn)
+
+        Dim aussen As JPanel = New JPanel(New BorderLayout(0, 8))
+        aussen.add(feld, BorderLayout.CENTER)
+        aussen.add(lblHinweis, BorderLayout.SOUTH)
+        aussen.setPreferredSize(New Dimension(320, 240))
+
+        wurzel.add(aussen)
+        Return wurzel
+    End Function
+
+End Class

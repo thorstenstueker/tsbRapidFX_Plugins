@@ -1,0 +1,84 @@
+' The second screen: pushed with something, popped by the back gesture.
+'
+' Nothing here calls App.back. The user's own gesture does it — the Android button and the iOS edge
+' swipe both pop this form without a line of wiring, which is the whole reason the stack exists.
+
+Imports tsb.mobile
+
+Public Class CustomerDetail
+    Implements Form
+
+    ' Passed through the constructor, because a form is an ordinary object. There is no parameter
+    ' mechanism beyond that and none is needed.
+    Private nummer As Integer
+
+    Public Sub New(welcher As Integer)
+        nummer = welcher
+    End Sub
+
+    Private Sub OnFormBuilt()
+        lblTitel.setText(CustomerList.Namen(nummer))
+        lblDetail.setText("Customer number " + CStr(nummer + 1) + " of " _
+                          + CStr(CustomerList.Namen.Length))
+        lblHinweis.setText("Swipe back, or press the system back button.")
+    End Sub
+
+    ' A second way out, for anybody who prefers a button to a gesture. Both do the same thing.
+    Private Sub OnZurueckClick(source As Button)
+        App.back()
+    End Sub
+
+'******************************************************************************
+'                        the half a designer would write
+'******************************************************************************
+
+    ' @tsbmob form class=CustomerDetail geraet=PHONE w=390 h=844
+    Private schirm As Screen = New Screen()
+
+    ' @tsbmob Label lblTitel L=16 T=24 W=358 H=32
+    Private lblTitel As Label = New Label()
+
+    ' @tsbmob Label lblDetail L=16 T=8@lblTitel.BOTTOM W=358 H=40
+    Private lblDetail As Label = New Label()
+
+    ' @tsbmob Label lblHinweis L=16 T=8@lblDetail.BOTTOM W=358 H=40
+    Private lblHinweis As Label = New Label()
+
+    ' @tsbmob Button btnZurueck L=16 T=16@lblHinweis.BOTTOM W=358 H=48
+    Private btnZurueck As Button = New Button()
+
+    Public Function build() As Screen
+        schirm.setTitle("Detail")
+
+        lblTitel.setName("lblTitel")
+        lblTitel.setSize(358, 32)
+        schirm.add(lblTitel)
+
+        lblDetail.setName("lblDetail")
+        lblDetail.setSize(358, 40)
+        schirm.add(lblDetail)
+
+        lblHinweis.setName("lblHinweis")
+        lblHinweis.setSize(358, 40)
+        schirm.add(lblHinweis)
+
+        btnZurueck.setName("btnZurueck")
+        btnZurueck.setText("Back")
+        btnZurueck.setSize(358, 48)
+        btnZurueck.onClick(AddressOf OnZurueckClick)
+        schirm.add(btnZurueck)
+
+        schirm.anchor(lblTitel, Edge.LEFT, 16)
+        schirm.anchor(lblTitel, Edge.TOP, 24)
+        schirm.anchor(lblDetail, Edge.LEFT, 16)
+        schirm.anchor(lblDetail, Edge.TOP, 8, lblTitel, Edge.BOTTOM)
+        schirm.anchor(lblHinweis, Edge.LEFT, 16)
+        schirm.anchor(lblHinweis, Edge.TOP, 8, lblDetail, Edge.BOTTOM)
+        schirm.anchor(btnZurueck, Edge.LEFT, 16)
+        schirm.anchor(btnZurueck, Edge.TOP, 16, lblHinweis, Edge.BOTTOM)
+
+        OnFormBuilt()
+
+        Return schirm
+    End Function
+End Class
