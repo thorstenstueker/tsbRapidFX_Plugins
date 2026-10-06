@@ -27,7 +27,7 @@ The source is right and this version cannot compile it. Each reports `RFX0900` w
 | | |
 |---|---|
 | **The compiler says** | Multi-dimensional arrays cannot be compiled in this version yet (planned for later). |
-| **Instead** | Use an array of arrays, or a one-dimensional array with computed indices. |
+| **Instead** | Use an array of arrays — Dim rows(2) As Integer(), read and written as rows(0)(0) — or a one-dimensional array with computed indices. Such an array also goes straight into a Java method that takes Integer[][]. Java collections are unaffected: an ArrayList of ArrayLists and List(Of List(Of String)) both work. |
 
 ### RFXA-002 · Compound assignment to a property
 
@@ -86,16 +86,6 @@ The compiler carries a refusal for these, and nothing can provoke it. Listed so 
 | **What happens** | Hebrew, Yiddish and Indonesian changed ISO code in 1989. This runtime stores the old one, so Locale("he").getLanguage() answers 'iw' where JDK 25 answers 'he'; likewise 'ji' for Yiddish and 'in' for Indonesian. |
 | **Instead** | toLanguageTag() answers the modern code on both, because BCP 47 requires it — a program that talks to a server in language tags sees no difference. Only a reader of getLanguage() does. |
 | **Status** | open — turning it round reaches serialisation and every stored locale |
-| **Risk** | to be assessed by the manufacturer — see above |
-
-### RFXA-104 · The designer's palette can be empty on Linux until it is scrolled
-
-| | |
-|---|---|
-| **Affects** | The designer inside IntelliJ IDEA on Linux under Wayland. Not the designer started by hand, and no other Swing program. |
-| **What happens** | Painting a palette thumbnail means painting a component that belongs to no window, and such a component has no GraphicsConfiguration. The JetBrains Runtime's native Wayland pipeline dereferences it anyway: NullPointerException in sun.java2d.wl.WLVolatileSurfaceManager.validate, reached from JComponent.paintChildren for a child of the rendered component. The exception leaves through the IDE's own paint pass, which abandons whatever it had not drawn — hence an area that fills in on the next repaint. Only from the IDE, because only the IDE runs on that runtime. |
-| **Instead** | Update to 2026.1.88 or newer — and uninstall the older plugin first, because installing over it may not replace it. On an older build: scroll or resize once. |
-| **Status** | fixed in 2026.1.88 by painting detached components straight into the given Graphics, with no screen buffer anywhere (DetachedPaintingTest holds it), and confirmed on the affected KDE/Wayland machine on 06.10.2026. Reported 27.09.2026; the four remedies committed earlier on 05.10.2026 were aimed at window placement and display scaling and were against the wrong cause. One of them, sun.java2d.uiScale pinned to 1 for the designer's own process, was removed again on 06.10.2026 after the confirmation — so a HiDPI Wayland display is worth one more look, the confirmed run having had that pin in place. The entry stays until then rather than being deleted on the strength of a run in a configuration that has since changed. |
 | **Risk** | to be assessed by the manufacturer — see above |
 
 ### RFXA-105 · On iOS, the step from an answered permission dialogue to the first position is unverified

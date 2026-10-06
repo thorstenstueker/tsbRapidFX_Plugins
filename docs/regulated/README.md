@@ -9,7 +9,7 @@ would invalidate all of that.
 
 | | |
 |---|---|
-| **Applies to** | `rapidfx-idea-2026.1.90` and `rfxc 0.1.0` as shipped inside it |
+| **Applies to** | `rapidfx-idea-2026.1.91` and `rfxc 0.1.0` as shipped inside it |
 | **Written** | 06.10.2026 |
 | **Status of the feature** | implemented and in use; three of five planned measures (§3) |
 | **Scope** | desktop and web programs. A mobile project is refused by name — see §3 |
@@ -35,8 +35,8 @@ because of a day that was lost to it.
 **1. The artefact is the one that was published.**
 
 ```bash
-shasum -a 256 rapidfx-idea-2026.1.90.zip
-6c4d69a5a3459c268482991007f3aef9c4a65979dad8b9e23974ead3b21dd7dd
+shasum -a 256 rapidfx-idea-2026.1.91.zip
+8e62f133eebd06ea7997276c6a43cbef1d40b780866b665828b998c8b3506680
 ```
 
 That value is in the release notes of the version it belongs to. A plugin zip is an ordinary file
@@ -149,8 +149,8 @@ compiler:
 | Linux | `~/.local/share/JetBrains/<IDE>/plugins/rapidfx-idea/lib/rfxmobile/rfxc-0.1.0.jar` |
 | Windows | `%APPDATA%\JetBrains\<IDE>\plugins\rapidfx-idea\lib\rfxmobile\rfxc-0.1.0.jar` |
 
-In `2026.1.90` that jar is
-`555654d8047618d47d00c065f03e8739eac84758035cfdb6c71c47bc4e3e9e4d`, byte for byte the one in the
+In `2026.1.91` that jar is
+`c0dd4e9c6b6f24838af8e6e9305cb9129bc2a46bf68edf0105e91d49a814418f`, byte for byte the one in the
 published zip — checked by hashing both.
 
 Both numbers move with every release. The one that belongs to the version you are holding is in that
