@@ -20,6 +20,10 @@ enforce, and a protocol that passes does not change that list.
 project with at least one jar in `lib/` exercises more of the protocol than one without — step 9
 depends on it.
 
+**Fetch two files from the release as well** and keep them with the result: that version's
+`KNOWN-ANOMALIES.md`, which is an input to the assessment this protocol does not make (README §8),
+and the release notes, which carry the checksum step 1 compares against.
+
 Throughout, `RFXC` stands for the compiler inside the installed plugin:
 
 | | |

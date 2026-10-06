@@ -9,7 +9,7 @@ would invalidate all of that.
 
 | | |
 |---|---|
-| **Applies to** | `rapidfx-idea-2026.1.89` and `rfxc 0.1.0` as shipped inside it |
+| **Applies to** | `rapidfx-idea-2026.1.90` and `rfxc 0.1.0` as shipped inside it |
 | **Written** | 06.10.2026 |
 | **Status of the feature** | implemented and in use; three of five planned measures (§3) |
 | **Scope** | desktop and web programs. A mobile project is refused by name — see §3 |
@@ -35,8 +35,8 @@ because of a day that was lost to it.
 **1. The artefact is the one that was published.**
 
 ```bash
-shasum -a 256 rapidfx-idea-2026.1.89.zip
-467e800d0cd3bc4aafc2b04ce3a2e5d8121da27e5f711dbb36fff5f915966af4
+shasum -a 256 rapidfx-idea-2026.1.90.zip
+6c4d69a5a3459c268482991007f3aef9c4a65979dad8b9e23974ead3b21dd7dd
 ```
 
 That value is in the release notes of the version it belongs to. A plugin zip is an ordinary file
@@ -149,7 +149,7 @@ compiler:
 | Linux | `~/.local/share/JetBrains/<IDE>/plugins/rapidfx-idea/lib/rfxmobile/rfxc-0.1.0.jar` |
 | Windows | `%APPDATA%\JetBrains\<IDE>\plugins\rapidfx-idea\lib\rfxmobile\rfxc-0.1.0.jar` |
 
-In `2026.1.89` that jar is
+In `2026.1.90` that jar is
 `555654d8047618d47d00c065f03e8739eac84758035cfdb6c71c47bc4e3e9e4d`, byte for byte the one in the
 published zip — checked by hashing both.
 
@@ -258,16 +258,25 @@ release asset can be replaced in place with one command.
 
 ## 8 Known anomalies
 
-`docs/KNOWN-ANOMALIES.md` lists the compiler's known limitations, and it is **generated**: each entry
-is produced by compiling a program that provokes the limitation, so an entry is evidence that the
-limitation is still there and that the wording is the one a reader will meet. When one is lifted, its
-entry disappears and a test fails until somebody has looked.
+**[`KNOWN-ANOMALIES.md`](KNOWN-ANOMALIES.md), published beside this document** and
+attached to the release it belongs to. Two halves, and both are evidence rather than prose:
 
-Its risk column is deliberately empty. Under ISO 14971 a risk belongs to a hazard in a device, not
-to a defect in a tool, and filling it in from here would be making the manufacturer's assessment for
-them.
+* the **compiler limitations** are *generated* — each entry is produced by compiling a program that
+  provokes the limitation, so an entry proves the limitation is still there and that the wording is
+  the one a reader will meet. When one is lifted its entry disappears, and a test fails until
+  somebody has looked;
+* the **platform anomalies** are facts about the runtime's C libraries and data, measured against a
+  real JDK, each naming the experiment that holds it.
 
-Ask for the list belonging to the version you are qualifying; it is a property of that version.
+**The list belongs to one version.** Use the copy attached to the release you are qualifying, not
+the one in the repository's main branch, which moves with development. The release asset and the
+version named at the top of this document go together.
+
+Its risk column is deliberately empty, and that is the one place this document asks something of
+the reader. Under ISO 14971 a risk belongs to a hazard in a particular device, not to a defect in a
+tool — the same wrong date is an inconvenience in a stock list and something else in a dosing
+interval. The entries state what happens so that the classification can be made by whoever knows the
+device; making it from here would be making somebody else's assessment for them.
 
 ## 9 Who is responsible for what
 
