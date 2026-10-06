@@ -22,6 +22,7 @@ next.**
 | **[6 Mobile](06-mobile.md)** | iPhone and Android, the database, background work, location |
 | **[7 FAQ](07-faq.md)** | The questions that actually get asked |
 | **[8 Troubleshooting](08-troubleshooting.md)** | When something does not work, in the order to check it |
+| **[9 A build you can hand over](09-regulated.md)** | **Build ▸ Build RapidFX Jar (regulated)** — the build record, and what it refuses |
 
 **The examples** are real projects, not fragments: [`samples/`](../../samples/README.md) — one
 directory each, each one runnable as it stands, and the three of them show the *same program* so

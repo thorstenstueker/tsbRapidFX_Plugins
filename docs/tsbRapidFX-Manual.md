@@ -2,7 +2,7 @@
 
 ## The Complete Manual
 
-A Basic for the JVM — the language, the compiler, the Java class library, databases, user interfaces, web applications, the form designers for the desktop, the web and mobile, and packaging into native installers.
+A Basic for the JVM — the language, the compiler, the Java class library, databases, user interfaces, web applications, the form designers for the desktop, the web and mobile, packaging into native installers, and what a build has to be able to say about itself afterwards.
 
 It is all one product now: **one IntelliJ IDEA plugin** carries the language, the three designers and tsbDeploy. The separate mobile plugin for Android Studio is gone since 19.09.2026; where older notes still say "Android Studio", read "the IDE".
 
@@ -24,6 +24,7 @@ This manual describes tsbRapidFX as it stands. Every program in it was compiled 
 | VI | 22–23 | The designers: desktop and web |
 | VII | 24–26 | Mobile: the designer, writing a program, building and running on a device |
 | VIII | 27 | Packaging into native installers with tsbDeploy |
+| IX | 28 | The regulated build: what was built, from what, and whether anything was ignored |
 
 ---
 
@@ -79,6 +80,10 @@ This manual describes tsbRapidFX as it stands. Every program in it was compiled 
 **Part VIII — Packaging**
 
 27. Packaging with tsbDeploy
+
+**Part IX — The regulated build**
+
+28. The regulated build
 
 ---
 
@@ -4885,9 +4890,208 @@ clones it has.
 
 ---
 
+# Part IX — The regulated build
+
+An installer is the end of the line for the program. It is not the end of the line for the
+*questions about it*. Whoever installs it and did not write it eventually asks what went into it,
+whether it can be built again, and whether anything was waved through on the way — and in a
+regulated field they ask on paper, years later, about a version nobody has open any more.
+
+That is a different property from compiling correctly, and this part is the switch, the menu entry
+and the file that answer it.
+
+## 28 The regulated build
+
+### The question somebody else will ask
+
+Four questions come back in every audit, no matter which standard is on the cover:
+
+| | |
+|---|---|
+| **What was built?** | which jar, and what exactly is in it |
+| **From what?** | which sources, which libraries — by content, not by file name |
+| **With what?** | which compiler, which version, which machine |
+| **Was anything ignored?** | a warning that was carried past, a check that was skipped |
+
+IEC 62304 asks them of medical software, ISO 26262, IEC 61508, EN 50716 and DO-178C in their own
+fields, and a GxP or financial audit asks them without safety being the subject at all. A GUI that
+builds a jar and says *done* answers none of them.
+
+> **The name is `regulated` and not `certified`, deliberately.** Nothing in this chapter is a claim
+> about this compiler being approved for anything. A development tool is validated by the
+> manufacturer who uses it — IEC 62304 §5.1.4 puts that duty on them — and what follows is what
+> makes such a validation possible rather than a substitute for it. Where a measure is not
+> implemented, the product says so out loud, every time it runs.
+
+### Build ▸ Build RapidFX Jar (regulated)
+
+In the IDE it is a second entry beside the ordinary one, in **Build** and in **Tools**. It does
+everything the ordinary build does and three things more:
+
+- **A warning ends the build, and nothing is written.** Not a jar, not a partial one, and not an
+  older one left in place to be picked up by the next step.
+- **Every emitted class is held against the class file format** before anything is written. The JVM
+  does this when it loads a class; doing it here means the artefact was checked on the machine that
+  built it rather than first on a device in somebody's hand.
+- **A build record lands beside the jar** — `build-record.json` next to `build/<Name>.jar`, with a
+  fingerprint over the sources, the libraries and the output.
+
+The notification names all three, and it also names what the profile does **not** enforce. That
+second half is not modesty; it is the difference between a usable claim and a false one.
+
+**Why a second menu entry rather than a setting.** Which of the two builds produced the jar in
+`build/` must never be in doubt, and a checkbox in the project settings is state nobody can see
+while they are building. Two entries also put the difference where somebody looks for it. It is in
+**Build** and **Tools** only, not in the editor's context menu: the ordinary build belongs under the
+right mouse button because it is done constantly, and this one is done once, at the end.
+
+### The same build on the command line
+
+```bash
+rfxc --profile regulated --jar build/program.jar src
+```
+
+```
+profile regulated — enforced:
+  warnings end the build, and nothing is written
+  every emitted class is held against the class file format before writing
+  a build record is written, with a fingerprint over sources, libraries and output
+profile regulated — NOT yet enforced:
+  the documented language subset (constructs whose semantics are unmeasured, and
+  constructs that behave differently per target). Not built; do not rely on it.
+written: build/program.jar  (16 entries)
+start it with: java -jar build/program.jar
+record: /tmp/program/build/build-record.json  fingerprint a3b223ca4e3076e6a84f0e14ef2acbecc35879d81cb384464258c011bb22707b
+```
+
+Printed before anything is compiled, so it is in the build log of whoever ran it.
+
+**The menu entry and the switch are one definition.** `rfxc` parses a command line; the IDE compiles
+in process, because it already holds the sources in the editor — the two share no code path. So what
+"regulated" means lives in one place, `com.rapidfx.compiler.build.Profile`, and both ask it. A
+profile implemented on each side would be two profiles, and two implementations of one rule drift:
+this product has paid for that once already, when the mobile compiler was a copy of the desktop one
+kept in step by hand and differing in seven places. The sentence the notification shows and the
+sentence the console prints are the same sentence, from the same source.
+
+The individual switches exist as well — `--record`, `--verify`, `--strict`, `--suppress` and
+`--verify-output`, all of them in `rfxc --help` beside the ones Chapter 2 describes. `--profile
+regulated` is three of them in one word, so that a build script cannot collect them half.
+
+### The build record
+
+JSON, because it has to be readable by a person *and* by whatever the reviewer already uses:
+
+| | |
+|---|---|
+| `fingerprint` | one SHA-256 over the reproducible part of the run |
+| `fingerprintCovers` | what that is, in a sentence, so the record explains itself |
+| `tool` | which compiler this is — name, version, the jar it ran out of and that jar's SHA-256 |
+| `environment` | Java version and vendor, operating system and architecture, locale, time zone, encoding |
+| `command` | the arguments as given, so a reader can repeat the call |
+| `sources` | every source file, by name and SHA-256 |
+| `libraries` | every class path entry by SHA-256 — by content, without its path |
+| `outputs` | every class file produced, by name and SHA-256 |
+| `diagnostics` | everything the compiler said, including what was only a warning |
+
+**The fingerprint deliberately leaves out the environment, the paths and the time.** A reviewer on
+another machine, another JDK and another directory has to be able to recompile and arrive at the
+same value; a number that only ever matches where it was written says nothing. And a timestamp would
+make two records of one compilation differ, which costs the only property that makes them
+comparable. The environment is in the document for the reader, one field away from the hash.
+
+A library counts **by content only**, so `lib/flatlaf-3.7.2.jar` and `/opt/jars/flatlaf-3.7.2.jar`
+are the same input and nobody goes looking for a difference that is not there.
+
+**What the record admits.** Built from the IDE, the `tool` section cannot hash a jar — the compiler
+runs inside the IDE's own class loader, so there is no single file to hash. The field says
+`unavailable — compiled in process by the IDE plugin` and names the plugin's version instead. A hash
+of the wrong thing would be worse than an admission; a record is evidence, and evidence that
+overstates what it knows is not evidence.
+
+### Checking a build somebody else made
+
+One command, and the person running it needs neither RapidFX nor a JSON parser nor this manual:
+
+```bash
+rfxc --verify build/build-record.json -o /tmp/check src
+```
+
+```
+verified: this machine reproduces build/build-record.json
+  fingerprint a3b223ca4e3076e6a84f0e14ef2acbecc35879d81cb384464258c011bb22707b
+```
+
+It **writes nothing** — the question is whether this machine arrives at the same result, so there is
+no second artefact to confuse with the one being checked — and the answer is in the exit code as
+well as on the screen: `0` when the fingerprints agree, `1` when they do not, `2` when the record is
+missing or carries no fingerprint. A build server can act on that without reading a word.
+
+When it disagrees it says so without guessing which half moved:
+
+```
+rfxc: NOT reproduced.
+  recorded:  a3b223ca4e3076e6a84f0e14ef2acbecc35879d81cb384464258c011bb22707b
+  here:      7fbdaa62ecbdf21e199e164103ed537971730e58e317297be62a70651a4aef9f
+The sources, the libraries or the emitted classes differ from the recorded run. Compare the record's "sources", "libraries" and "outputs" against a fresh --record to see which.
+```
+
+Two older properties are what make an answer possible at all. The compiler emits
+**deterministically** — every jar entry carries the same fixed timestamp, so two builds of the same
+sources are the same bytes — and the class path is an input to the compilation rather than a setting,
+so the record can name it. Chapter 2 is where both are described.
+
+### Warnings mean something here
+
+A warning exists for the case where carrying on is reasonable. In a build whose result is signed and
+handed over, nobody should be making that judgement silently — so under this profile a warning is the
+end of the build:
+
+```
+Warn.rfx:1:1: warning RFX0610: 'com.nosuch.library' is neither a package nor a class on the class path. Check the spelling, or the libraries this program is compiled against.
+0 error(s), 1 warning(s).
+rfxc: 1 warning(s), and --strict was asked for. Nothing was written.
+```
+
+From the IDE the same refusal arrives as a notification that lists the warnings with their file and
+line, and nothing has been written at that point.
+
+There are two warnings today. `RFX0610` is an `Imports` that finds nothing, and `RFX9001` is a class
+path entry that could not be read — the second being the one worth refusing on its own account,
+because a library that silently failed to load is how a program comes to be compiled against
+something other than what it will run against.
+
+`--suppress RFX0610` is how a known and accepted warning is carried past, and it refuses two things
+on purpose: **an error is never suppressed**, and **an id that matched nothing is reported**, since a
+suppression that applies to nothing reads exactly like one that works. What was suppressed still
+stands in the record's `diagnostics` — silencing a message in the console does not silence it in the
+account of the build.
+
+### What is deliberately not claimed
+
+**The language subset is not built.** Two of the five measures planned for this profile are a
+documented subset of the language: refusing constructs whose semantics are unmeasured, and
+constructs that behave differently from one target to the next. Which constructs belong in it is a
+product decision, not something derivable from the compiler. Until it exists, every regulated build
+prints that it is missing — a profile that quietly enforced three fifths of what its name suggests
+would be worse than no profile, because somebody would rely on the other two.
+
+**Coverage is a recipe, not a switch.** Which statements of a program were never executed can be
+measured today — an ordinary Java coverage tool reports on `.rfx` lines directly, because the emitter
+writes `SourceFile` and the `LineNumberTable` correctly per type — but assembling it is still a
+handful of commands. Making it one command means deciding whether the coverage tooling ships with
+RapidFX, and that brings a further third-party licence into the delivery.
+
+**A mobile program cannot be measured that way at all.** It is compiled ahead of time into a native
+image: no JVM, nothing to instrument. Measuring the same forms on the desktop route would catch the
+logic and miss exactly where the device-specific defects live, so there is no number rather than a
+number about something else. Part VII says what a phone build does guarantee.
+
+---
+
 ## Closing note
 
-Four things in this manual are worth carrying away more than the rest.
+Five things in this manual are worth carrying away more than the rest.
 
 **The JDK is not a foreign country.** `Files.readString`, a `JTable`, a JDBC `PreparedStatement` — none of them needs a wrapper, an adapter or a translation table. Read the Javadoc, apply the fifteen rules of Chapter 11, and write the line.
 
@@ -4896,3 +5100,5 @@ Four things in this manual are worth carrying away more than the rest.
 **One form runs in four places.** Desktop, web, Android and iOS out of the same `.rfx` file — not a port and not a subset, but the same components drawn by a different backend. Swing computes the geometry without a screen, and a look and feel can be asked to paint into SVG or onto a phone instead of into desktop pixels.
 
 **The last step is not an afterthought.** A program nobody can install is not finished. tsbDeploy makes the installer — for six platforms, from the one you are on, with the runtime inside — so that "it runs here" becomes "it runs for them".
+
+**And a build that cannot be accounted for is not finished either**, once somebody else has to rely on it. One menu entry writes down what was built, from what and with what, refuses to write anything at all if a warning was ignored, and leaves a number another machine can check.

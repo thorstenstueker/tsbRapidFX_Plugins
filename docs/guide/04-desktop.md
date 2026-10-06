@@ -86,7 +86,7 @@ Next window
 
 ## Building a jar
 
-In the IDE: **Build ▸ Build Jar**. On the command line:
+In the IDE: **Build ▸ Build RapidFX Jar**. On the command line:
 
 ```bash
 rfxc --project MyProgram.rfxproj
@@ -99,6 +99,10 @@ recompiling.
 ```bash
 java -jar MyProgram.jar
 ```
+
+For the jar that gets signed and handed to somebody else there is a second entry,
+**Build RapidFX Jar (regulated)** — it refuses on a warning and writes down what it built from. See
+[9 A build you can hand over](09-regulated.md).
 
 ## An installer
 
