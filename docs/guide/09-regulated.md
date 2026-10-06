@@ -138,6 +138,10 @@ at all — a mobile program is compiled ahead of time, so there is nothing to in
 **Whether your program is correct.** This build certifies nothing about what the program does. It
 makes the *build* accountable: what went in, what came out, and that nothing was waved through.
 
+**If you have to qualify this build form rather than just use it**, there is a document for that:
+[`docs/regulated/`](../regulated/README.md) — what it guarantees, how to prove it is installed, what identifies the tool that
+produced a given jar, and an eleven-step acceptance protocol with the expected result of each step.
+
 **Part IX of the [complete manual](../tsbRapidFX-Manual.md)** goes through the same ground in more detail, including the
 individual switches this build is made of — `--record`, `--verify`, `--strict`, `--suppress` and
 `--verify-output`, all of them also in `rfxc --help`.

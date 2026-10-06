@@ -6,6 +6,17 @@ In the order worth checking, with what each symptom actually means.
 
 ## The IDE
 
+**A fixed bug is still there after installing the new plugin.**
+
+Check that the new one is actually installed: *Settings ▸ Plugins* names the version, and an IDE
+goes on using the plugin it loaded until it is restarted. Installing from disk over a version that
+is already there does not always replace it — on 06.10.2026 it did not, and the IDE kept running the
+old build while reporting the new version number. **Uninstall the old one first, restart, then
+install the zip and restart again.**
+
+Worth doing before writing a bug report: a stack trace from the plugin that was loaded says nothing
+about the plugin that was installed.
+
 **The *Design* tab is missing, or *Open in Designer* does nothing.**
 
 That file is not a designer form. A form carries a banner the designer wrote; a hand-typed file does

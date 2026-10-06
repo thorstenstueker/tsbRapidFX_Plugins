@@ -5067,6 +5067,15 @@ suppression that applies to nothing reads exactly like one that works. What was 
 stands in the record's `diagnostics` — silencing a message in the console does not silence it in the
 account of the build.
 
+### The build form has a document of its own
+
+This chapter explains the build. What a validation needs beside it — how to establish that the
+build form is really present on a given installation, what identifies the tool that produced an
+artefact, what invalidates a qualification, and an eleven-step acceptance protocol to execute and
+keep — is a document of its own, `docs/regulated/`, published with the release. It exists because a
+procedure that names this menu entry has to be followed on a day when nobody is available to
+explain it.
+
 ### What is deliberately not claimed
 
 **The language subset is not built.** Two of the five measures planned for this profile are a
