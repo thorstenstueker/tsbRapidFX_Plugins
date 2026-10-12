@@ -143,13 +143,50 @@ A form is a Swing form, with two differences that follow from being on a server:
 
 **Never block.** A handler that waits on a slow query holds that user's session thread, and the
 browser shows nothing until it returns. Other users are unaffected — one thread each — but that user
-is stuck.
+is stuck. For long work start a thread; for anything *repeating* take a `tsbWebTimer`, below.
 
 **Nothing shared between sessions unless you mean it.** A `Shared` field, a static cache, a
 singleton: all of them are one for everybody. Read the SessionStatic paragraph above twice.
 
 File dialogs, `System.exit`, native windows and anything else that assumes a person sits at the
 machine do not apply — the machine is a server in a rack.
+
+## A timer on the page
+
+Time passing while nobody touches anything is the one thing a web form needs that a desktop form
+gets for free. Three lines:
+
+```basic
+Imports com.tsbweb.mirror
+
+Dim clock As tsbWebTimer = New tsbWebTimer(1000)
+clock.addActionListener(Sub(e)
+    left = left - clock.getLastElapsed()
+    display.Text = "Still " + CStr(left / 1000) + " seconds"
+End Sub)
+content.add(clock)
+```
+
+A component with no size and nothing to draw: it goes into any container, or onto a designer form,
+and appears nowhere on the page. The tick arrives on the session thread with the session in scope,
+so the handler may do exactly what a button's handler may do.
+
+**It ticks in the browser, not on the server.** A `javax.swing.Timer` would go on ticking for a
+user who closed the tab an hour ago — holding a thread and counting for somebody who left. This one
+stops existing when the page does.
+
+**Add up `getLastElapsed()` rather than counting ticks.** A browser throttles a tab that is not in
+front to about one tick a second, and after a few minutes to roughly one a minute; a sleeping
+machine does not tick at all. So `ticks × interval` is not elapsed time. Each tick carries the
+milliseconds the browser measured since the previous one, which is the only side that can know
+them — so a counter built on `getLastElapsed()` is right even after twenty minutes in another tab.
+
+Also worth knowing: at most one tick per timer is ever in flight, so a slow handler means skipped
+ticks rather than a burst; 100 ms is the shortest interval, because every tick is an HTTP request;
+and `stop()` / `start()` turn it off and on from any handler.
+
+The fourth page of the web sample is a twenty-second lifeline built out of this, with a progress
+bar and a pause button.
 
 ## Running and deploying
 

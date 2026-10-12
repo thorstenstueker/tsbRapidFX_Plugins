@@ -9,9 +9,9 @@ would invalidate all of that.
 
 | | |
 |---|---|
-| **Applies to** | `rapidfx-idea-2026.1.91` and `rfxc 0.1.0` as shipped inside it |
-| **Written** | 06.10.2026 |
-| **Status of the feature** | implemented and in use; three of five planned measures (§3) |
+| **Applies to** | `rapidfx-idea-2026.1.95` and `rfxc 0.1.0` as shipped inside it |
+| **Written** | 06.10.2026 · revised 13.10.2026 for `2026.1.95` |
+| **Status of the feature** | implemented and in use; the language subset is six rules and grows (§3) |
 | **Scope** | desktop and web programs. A mobile project is refused by name — see §3 |
 
 Read §1 first if you have an installation in front of you, §9 if you are deciding whether to rely on
@@ -35,8 +35,8 @@ because of a day that was lost to it.
 **1. The artefact is the one that was published.**
 
 ```bash
-shasum -a 256 rapidfx-idea-2026.1.91.zip
-8e62f133eebd06ea7997276c6a43cbef1d40b780866b665828b998c8b3506680
+shasum -a 256 rapidfx-idea-2026.1.95.zip
+ad325f98fdf8db278036aee51182ccf1832897548fac78eb11a50b46e7b63f48
 ```
 
 That value is in the release notes of the version it belongs to. A plugin zip is an ordinary file
@@ -87,9 +87,13 @@ profile regulated — enforced:
   warnings end the build, and nothing is written
   every emitted class is held against the class file format before writing
   a build record is written, with a fingerprint over sources, libraries and output
+  the language subset refuses On Error Resume Next (RFX0500)
+  the language subset refuses GoTo (RFX0501)
+  the language subset refuses background work without a failure handler (RFX0502)
 profile regulated — NOT yet enforced:
-  the documented language subset (constructs whose semantics are unmeasured, and
-  constructs that behave differently per target). Not built; do not rely on it.
+  the rest of the documented language subset (constructs whose semantics are
+  unmeasured, and constructs that behave differently per target). Being built one
+  rule at a time; what is listed above is all there is today.
 ```
 
 **The menu entry and the switch are one definition.** `rfxc` parses a command line; the IDE compiles
@@ -104,12 +108,46 @@ implementations of one rule drift.
 Said here rather than in an appendix, because a reader who stops after §2 would otherwise rely on
 things that are not there.
 
-**The language subset is not built.** Two of the five measures this profile is meant to have are a
-documented subset of the language: refusing constructs whose semantics are unmeasured, and
+**The language subset is only partly built.** Two of the five measures this profile is meant to have
+are a documented subset of the language: refusing constructs whose semantics are unmeasured, and
 constructs that behave differently from one target to the next. Which constructs belong in it is a
-product decision and not derivable from the compiler. Until it exists, **every regulated build
-prints that it is missing** — a profile that quietly enforced three fifths of what its name suggests
-would be worse than no profile, because somebody would rely on the other two.
+product decision and not derivable from the compiler.
+
+Since 06.10.2026 it is built **one rule at a time**, and the profile prints the rules that exist
+followed by the statement that the rest does not — so what you qualify against is a list and not a
+promise. **In `2026.1.95` that list is six rules**, where `2026.1.94` had three:
+
+| | | |
+|---|---|---|
+| `RFX0500` | `On Error Resume Next` | a failure in any following statement is recorded instead of raised, so the error disappears unless `Err` is read afterwards |
+| `RFX0501` | a `GoTo` written in ordinary control flow | only one somebody wrote: the labels and jumps an `If` or a `For` compiles to are the compiler's own and are never reported |
+| `RFX0502` | background work with no failure handler | the throwable is logged and the form carries on — on a desktop into a terminal somebody watches, on a phone into nothing |
+| `RFX0503` | a locale-dependent date or currency format with no explicit pattern | the text is assembled out of the locale data of whichever runtime executes it, and the two disagree — see below |
+| `RFX0504` | a failure reported only to the console | a `Catch` whose whole body is `Print`; on a phone the machine's output is file descriptor 1, which an Android application has pointed at `/dev/null` |
+| `RFX0505` | `Variant` as a declared type | a `Variant` is an `Object`, so every read is an unchecked cast and `Format(Variant, …)` decides by the runtime type |
+
+`RFX0502`, `RFX0503` and `RFX0504` are the measure about **behaviour that differs per target**, and
+`RFX0503` is the one with a number behind it: the runtime on a phone bundles ICU 68.2, a desktop JDK
+carries a seven-years-newer CLDR, and reading both sets of resources on 06.10.2026 found **14 of the
+27** shipped languages stating different date-time patterns. The same program therefore prints two
+different receipts. An explicit pattern is not reported, because that is the remedy
+`KNOWN-ANOMALIES.md` already names for `RFXA-102`. A pattern argument that is **not a literal** is
+also not reported: the compiler cannot know which kind it is, and a rule of this subset cannot be
+suppressed to answer a guess.
+
+`RFX0500` and `RFX0505` are the measure about **unmeasured semantics**. Measured over this
+repository's own corpus of 70 programs on 11.10.2026, `RFX0503` fires once, `RFX0504` twenty-five
+times and `RFX0505` not at all — every one of the 25 in a console program or a device probe, none in
+an artefact anybody signs.
+
+`On Error GoTo` is deliberately not in the list — one handler per method, outside the range it
+protects, is a `Try/Catch` with a catch-all and hides nothing.
+
+A rule of the subset is a warning in every build and a refusal under this profile, and under this
+profile it cannot be suppressed: `--suppress RFX0503` — or any of the six — is answered with a
+refusal, because a promise a command-line flag can take away is not one. **What this means for a validation:** the measures in
+§2 are whole and can be relied on; for everything the subset does not yet cover, the coding standard
+and the review are the manufacturer's (§9).
 
 **Mobile is out of scope, and refused rather than silently different.** The regulated entry on a
 mobile project answers *"This is a mobile project. It is packaged as an APK or IPA (Build a signed
@@ -120,11 +158,21 @@ image through a different toolchain; nothing in this document describes it.
 came out, that nothing was waved through. Whether the program is correct is tested by whoever wrote
 it.
 
-**Coverage is not part of it.** Which statements of a program were never executed can be measured
-today — an ordinary Java coverage tool reports on `.rfx` lines directly, because the emitter writes
-`SourceFile` and the `LineNumberTable` correctly per type — but it is a recipe of several commands
-rather than a switch, and on a phone it is not possible at all. Making it one command means deciding
-whether the coverage tooling ships, which brings a further third-party licence into the delivery.
+**Coverage is a switch, and it is not part of this profile.** `rfxc --coverage <folder>` runs the
+program under JaCoCo's agent and writes a report over the `.rfx` sources — one command since
+06.10.2026, where it used to be three. It is deliberately *not* turned on by `--profile regulated`:
+coverage is a property of a test run and not of a build, and a profile that silently ran the program
+would be doing something a build must not do.
+
+**JaCoCo is not shipped with RapidFX.** The folder named on the command line is JaCoCo's own
+distribution (or its two Maven artefacts). That is a licence decision taken on 06.10.2026: EPL-2.0
+in the delivery would be a licence to account for in every audit and a third-party copy to keep
+current. For a validation it means one prerequisite more on the machine and one licence fewer in the
+artefact — and the structural-coverage evidence an IEC 62304 class B or C plan asks for is
+obtainable either way.
+
+**On a phone it cannot be measured at all:** a mobile program is compiled ahead of time into a
+native image, so there is no JVM to instrument.
 
 ## 4 Identifying the tool that produced an artefact
 
@@ -149,9 +197,10 @@ compiler:
 | Linux | `~/.local/share/JetBrains/<IDE>/plugins/rapidfx-idea/lib/rfxmobile/rfxc-0.1.0.jar` |
 | Windows | `%APPDATA%\JetBrains\<IDE>\plugins\rapidfx-idea\lib\rfxmobile\rfxc-0.1.0.jar` |
 
-In `2026.1.91` that jar is
-`c0dd4e9c6b6f24838af8e6e9305cb9129bc2a46bf68edf0105e91d49a814418f`, byte for byte the one in the
-published zip — checked by hashing both.
+In `2026.1.95` that jar is
+`ad35e38542af4da6e784e6dcbb0c8dae94e5c286e945db6545dd0bd9d573b6d0`, byte for byte the one in the
+published zip — checked by hashing both, on the zip downloaded back from the release rather than on
+the one this machine built.
 
 Both numbers move with every release. The one that belongs to the version you are holding is in that
 version's release notes, and §1 is how you establish it before anything else.
@@ -258,7 +307,7 @@ release asset can be replaced in place with one command.
 
 ## 8 Known anomalies
 
-**[`KNOWN-ANOMALIES.md`](KNOWN-ANOMALIES.md), published beside this document** and
+**[`KNOWN-ANOMALIES.md`](../../../docs/KNOWN-ANOMALIES.md), published beside this document** and
 attached to the release it belongs to. Two halves, and both are evidence rather than prose:
 
 * the **compiler limitations** are *generated* — each entry is produced by compiling a program that

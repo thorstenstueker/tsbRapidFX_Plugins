@@ -37,10 +37,33 @@ build/
     flatlaf-3.7.2.jar  as usual, beside the jar
 ```
 
-The notification names the three measures — and then names what this build does **not** enforce. Two
-of the five measures planned for it are a documented subset of the language, and that subset is not
-built yet. It is printed every time rather than left out, because somebody who read only the word
-*regulated* would assume it was there.
+The notification names the measures — and then names what this build does **not** enforce. It is
+printed every time rather than left out, because somebody who read only the word *regulated* would
+assume everything was there.
+
+**Since 2026.1.95 that list is six constructs long**, where until 2026.1.94 it was three and before
+06.10.2026 it was empty. These are the language subset: things that are legal RapidFX and do not
+belong in a jar somebody else installs.
+
+| | |
+|---|---|
+| `RFX0500` | `On Error Resume Next` — a failure in any following statement is recorded instead of raised |
+| `RFX0501` | a `GoTo` **you** wrote; the jumps an `If` or a `For` compiles to are never warned about |
+| `RFX0502` | background work with no failure handler — on a phone the user gets a screen that stands still |
+| `RFX0503` | a locale-dependent date or currency format with no explicit pattern |
+| `RFX0504` | a failure reported only to the console |
+| `RFX0505` | `Variant` as a declared type |
+
+Each is a **warning in every build** — you are told, you are not stopped — and a **refusal here**.
+The last three arrived in 2026.1.95 and the first of them is the one worth reading twice:
+`Format(d, "Long Date")` and `FormatCurrency(v)` are assembled out of the locale data of whichever
+runtime executes them, and a phone's bundled ICU disagrees with a desktop JDK's in **14 of the 27**
+shipped languages. The same program prints two different receipts. Give a pattern —
+`Format(d, "dd.MM.yyyy HH:mm")` — and the warning goes away because the program has said what it
+means.
+
+On the command line a subset rule **cannot be suppressed** under the profile: `--suppress RFX0503`
+is answered with a refusal. A promise a flag can take away is not one.
 
 **Two menu entries rather than a checkbox.** Which of the two produced the jar in `build/` must never
 be in doubt, and a setting is invisible at the moment you are building. The ordinary build is also in
@@ -131,9 +154,13 @@ the notification and the console print the same sentences.
 
 ## What it does not answer
 
-**Which lines of your program were never executed.** Coverage is measurable on a RapidFX program
-today, but it is still a handful of commands rather than a button, and on a phone it is not possible
-at all — a mobile program is compiled ahead of time, so there is nothing to instrument.
+**Which lines of your program were never executed** — not from this menu entry. It is one command
+since 2026.1.90 and not a handful: `rfxc --coverage <folder>` runs the program, asks for the report
+and prints `lines 4/6 (66.7%)` with the lines that never ran, against the `.rfx` source rather than
+against Java. The folder is a JaCoCo download on your own machine; it is deliberately not shipped,
+because EPL-2.0 in the delivery would be a licence to account for in every audit. On a phone it is
+not possible at all — a mobile program is compiled ahead of time, so there is nothing to
+instrument.
 
 **Whether your program is correct.** This build certifies nothing about what the program does. It
 makes the *build* accountable: what went in, what came out, and that nothing was waved through.

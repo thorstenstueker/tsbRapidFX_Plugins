@@ -62,30 +62,30 @@ The compiler carries a refusal for these, and nothing can provoke it. Listed so 
 
 | | |
 |---|---|
-| **Affects** | iOS, every version of tsbTheMachine from 27.4.0 |
-| **What happens** | The time-zone rules are read from the Olson files, and the trailing POSIX rule — which is what extends a zone's rules indefinitely into the future — is not carried over. A date past 2037 in a zone that observes daylight saving may therefore be offset by an hour. |
-| **Instead** | Dates up to 2037 are unaffected. Where a later date matters, compute the offset from a known rule rather than from the zone. |
-| **Status** | open |
+| **Affects** | iOS, tsbTheMachine 27.4.0 to 27.7.0 |
+| **What happens** | The time-zone rules are read from the Olson files, and the trailing POSIX rule — which is what extends a zone's rules indefinitely into the future — was not carried over. A date past 2037 in a zone that observes daylight saving could therefore be offset by an hour. |
+| **Instead** | Dates up to 2037 are unaffected. Where a later date matters on a build older than 27.8.0, compute the offset from a known rule rather than from the zone. |
+| **Status** | fixed in tsbTheMachine 27.8.0, and this plugin pins 27.9.0. Held against JDK 25 for every zone on the host — 194 zones get a trailing rule and 192 agree exactly — and against each zone file's own transitions, which needs no outside authority. The entry stays until a run on a device confirms it; mobile/experiments/s7-zeitzonen carries eight cases past 2037 for that run |
 | **Risk** | to be assessed by the manufacturer — see above |
 
-### RFXA-102 · A long German date joins without a comma
+### RFXA-102 · A long date joins differently from JDK 25, in 14 of the 27 shipped languages
 
 | | |
 |---|---|
 | **Affects** | iOS and Android, every version of tsbTheMachine from 27.5.0 |
-| **What happens** | DateFormat with a long pattern produces '15. März 2026 12:00' where JDK 25 produces '15. März 2026, 12:00'. The bundled ICU is 68.2, from 2020, and the comma arrived in CLDR later. Every other German value agrees with JDK 25 exactly. |
-| **Instead** | Format the date and the time separately, or give an explicit pattern. |
-| **Status** | open — a newer ICU is the fix and is its own piece of work |
+| **What happens** | The bundled ICU is 68.2, from 2020, and CLDR has since changed how a date and a time are joined. German is the measured case: ICU 68.2 joins the full and long forms with "{1} 'um' {0}", so DateFormat produces '15. März 2026 um 12:00' where JDK 25 produces '15. März 2026, 12:00' — CLDR replaced the glue with the comma and moved the 'um' into a separate resource that ICU 68 does not know. Measured on 06.10.2026 against ICU 78.3's own source resources: 14 of the 27 shipped languages that state these patterns differ. Dutch, Spanish and Slovenian gain a comma; Danish, Finnish and Croatian lose a word; Polish, Irish and Slovenian have a different short date; and English's separator before AM/PM became U+202F, which cannot be seen on a screen. |
+| **Instead** | Give an explicit pattern where the exact text matters, or format the date and the time separately. A date or a time on its own is unaffected in every language but the four with a changed short date. |
+| **Status** | open — a newer ICU is the fix and is its own piece of work. The entry said until 06.10.2026 that the comma was missing and had arrived in CLDR after 68.2; both halves were wrong, and the value quoted had been written down from memory rather than measured |
 | **Risk** | to be assessed by the manufacturer — see above |
 
 ### RFXA-103 · getLanguage() answers the pre-1989 ISO 639 code
 
 | | |
 |---|---|
-| **Affects** | iOS and Android, every version of tsbTheMachine |
-| **What happens** | Hebrew, Yiddish and Indonesian changed ISO code in 1989. This runtime stores the old one, so Locale("he").getLanguage() answers 'iw' where JDK 25 answers 'he'; likewise 'ji' for Yiddish and 'in' for Indonesian. |
-| **Instead** | toLanguageTag() answers the modern code on both, because BCP 47 requires it — a program that talks to a server in language tags sees no difference. Only a reader of getLanguage() does. |
-| **Status** | open — turning it round reaches serialisation and every stored locale |
+| **Affects** | iOS and Android, tsbTheMachine up to and including 27.7.0 |
+| **What happens** | Hebrew, Yiddish and Indonesian changed ISO code in 1989. The runtime stored the old one, so Locale("he").getLanguage() answered 'iw' where JDK 25 answers 'he'; likewise 'ji' for Yiddish and 'in' for Indonesian. |
+| **Instead** | toLanguageTag() answers the modern code on every version, because BCP 47 requires it — a program that talks to a server in language tags never saw a difference. Only a reader of getLanguage() did. On a build older than 27.8.0, compare against Locale.of("he").getLanguage() rather than against the literal. |
+| **Status** | fixed in tsbTheMachine 27.8.0, and this plugin pins 27.9.0, the way OpenJDK has done it since 17: both codes are accepted and the current one is stored, with -Djava.locale.useOldISOCodes=true to restore the old behaviour. The entry stays until a run on a device confirms it; the eighth line of mobile/experiments/s8-sprachen asks both directions |
 | **Risk** | to be assessed by the manufacturer — see above |
 
 ### RFXA-105 · On iOS, the step from an answered permission dialogue to the first position is unverified

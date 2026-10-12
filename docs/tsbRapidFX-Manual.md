@@ -2906,7 +2906,7 @@ Submenus, separators, check items and radio items all travel. A context menu att
 Named plainly, because finding out later is worse:
 
 - **The focus lives in the browser.** `requestFocus()` from the program has no effect.
-- **`javax.swing.Timer` fires on the real EDT** and is not currently redirected to the session thread. For anything repeating, start a thread of your own — it inherits the session automatically.
+- **`javax.swing.Timer` fires on the real EDT** and is not redirected to the session thread. For anything repeating on a web page, use `tsbWebTimer` — chapter 18 — which ticks in the browser and calls back on the session thread; it is also the only kind that stops when the user closes the tab. For long one-off work, start a thread of your own: it inherits the session automatically.
 - **The look and feel is process-wide.** All sessions share it; per-user theming is not possible.
 - **A long handler blocks its session** — exactly as on the desktop, and with the same remedy.
 
@@ -3461,7 +3461,7 @@ java -Djava.awt.headless=true -cp "out:lib/*" Main
 - **No static field for user data.** Harmless on the desktop, a data breach on the web: the second person to sign in reads the first one's. Chapter 20 is entirely about this.
 - **A long handler blocks its session** — exactly as on the desktop. For long work, start a thread; it inherits the session automatically.
 - **The look and feel is process-wide.** All sessions share it.
-- **`javax.swing.Timer` fires on the real EDT** and is not redirected to the session thread. Use a thread for anything repeating.
+- **`javax.swing.Timer` fires on the real EDT** and is not redirected to the session thread. For anything repeating, use `tsbWebTimer` — the next section — which ticks in the browser and calls back into your program on the session thread.
 - **The focus lives in the browser.** `requestFocus()` from the program has no effect.
 
 ```basic
@@ -3472,6 +3472,109 @@ Var worker As java.lang.Thread = New java.lang.Thread(Sub()
 End Sub)
 worker.start()
 ```
+
+
+### A timer that runs on the page
+
+Time passing while nobody touches anything is the one thing a web form needs that a desktop form gets for free. `tsbWebTimer` is that, and it is three lines:
+
+```basic
+Imports com.tsbweb.mirror
+
+Dim clock As tsbWebTimer = New tsbWebTimer(1000)
+clock.addActionListener(Sub(e)
+    left = left - clock.getLastElapsed()
+    display.Text = "Still " + CStr(left / 1000) + " seconds"
+End Sub)
+content.add(clock)
+```
+
+It is an ordinary Swing component with no size and nothing to paint, so it goes into any container — or onto a designer form — and appears nowhere on the page. Two numbers travel to the browser: how often to tick, and whether it is running.
+
+**The browser keeps the time, not the server, and that is the whole design.** A `javax.swing.Timer` would tick whether or not anybody is watching: a user who closed the tab an hour ago still has a session until it is swept, and a server-side timer would go on running their handler — holding the session thread, writing to the database, counting a lifeline for somebody who left. A timer in the browser stops existing when the page does.
+
+A tick arrives through the same channel as a click, on the same session thread, with the session in scope. So the handler may touch widgets, read `tsbWebSession`, open a dialog — anything a button's handler may do — and whatever it repaints travels back in the same patch as the rest.
+
+**Add up `getLastElapsed()` rather than counting ticks.** A browser does not promise to tick on time. Every major browser throttles a tab that is not in front to about one tick a second, and after a few minutes to roughly one a minute; a machine that was asleep does not tick at all. So `ticks × interval` is not elapsed time, and a lifeline that counted that way would be wrong by however long the user looked at something else. Each tick therefore carries the milliseconds the *browser* measured since the previous one, which is the only side that can know them.
+
+| | |
+|---|---|
+| `New tsbWebTimer(ms)` | a timer, running, ticking every `ms` — minimum 100 |
+| `addActionListener(Sub(e) …)` | the handler, on the session thread |
+| `getLastElapsed()` | milliseconds the browser measured since the previous tick |
+| `getTotalElapsed()` | the sum over every tick so far |
+| `getTicks()` | how many ticks have actually run |
+| `start()` / `stop()` / `isRunning()` | a timer is running when it is created |
+| `setInterval(ms)` | takes effect with the next patch |
+| `resetCounts()` | for a form reused for a second measurement |
+
+Named, because each is a decision rather than an omission:
+
+- **No backlog.** If a handler takes longer than the interval, the browser skips the ticks it cannot send: at most one tick per timer is ever in flight. A page that falls behind and then delivers a burst is worse than a missed tick — and the skip is visible rather than silent, because the next tick reports the whole gap.
+- **100 ms is the floor.** Every tick is an HTTP request, and a session's event queue answers 429 when it is full. A program asking for less gets the floor rather than an exception: a timer is not worth failing a form over.
+- **Not a clock.** Nothing here is accurate to the millisecond. A program that needs the time of day asks the server for it.
+- **It stops when the page goes.** A closed tab, a lost connection, a sleeping laptop: no ticks. Work that must happen whether or not anybody is watching is server-side work and does not belong in a timer the browser drives.
+
+The whole of it in one program — the fourth page of `web/session/example/rfx/Showcase.rfx` is this with a progress bar on it:
+
+```basic
+Imports javax.swing
+Imports java.awt
+Imports com.tsbweb.server
+Imports com.tsbweb.session
+Imports com.tsbweb.mirror
+
+Module Lifeline
+
+    Sub Main()
+        Dim c As tsbWebConfig = New tsbWebConfig()
+        c.Port = 8100
+        tsbWebStart.Go(c, New LifelineApp())
+    End Sub
+
+End Module
+
+Public Class LifelineApp
+    Implements tsbWebApp
+
+    Public Function title() As String
+        Return "Lifeline"
+    End Function
+
+    Public Function createRoot(session As tsbWebSession) As Component
+        Dim page As JPanel = New JPanel(New BorderLayout(0, 10))
+        Dim display As JLabel = New JLabel("20 seconds", SwingConstants.CENTER)
+
+        Dim clock As tsbWebTimer = New tsbWebTimer(1000)
+        clock.addActionListener(Sub(e)
+            Dim spent As Long = Spent() + clock.getLastElapsed()
+            tsbWebSession.setValue("spent", spent)
+            Dim left As Long = 20000 - spent
+            If left <= 0 Then
+                clock.stop()
+                display.Text = "Time up"
+            Else
+                display.Text = CStr(left / 1000) + " seconds"
+            End If
+        End Sub)
+
+        page.add(display, BorderLayout.CENTER)
+        page.add(clock, BorderLayout.NORTH)
+        page.setSize(420, 160)
+        Return page
+    End Function
+
+    ' In the session and not in a field: the form is rebuilt whenever the page changes, and a
+    ' lifeline that started again every time somebody looked elsewhere would not be one.
+    Private Function Spent() As Long
+        Dim value As Object = tsbWebSession.getValue("spent")
+        If value Is Nothing Then Return 0
+        Return CLng(value)
+    End Function
+
+End Class
+```
+
 
 ---
 
@@ -4552,6 +4655,174 @@ Anchors work as they do on the desktop: an anchor is a rule about what happens w
 changes size, not a position. `LEFT 16` keeps sixteen from the edge; `LEFT 16` and `RIGHT 16`
 together make the widget stretch.
 
+### One form, one file, one banner
+
+A mobile form is divided the same way a desktop form is, by the same kind of banner. This is the
+whole file, and it compiles:
+
+```basic
+Imports tsb.mobile
+
+Public Class MobileLogin
+    Implements Form
+
+    ' Yours. Runs once, after the widgets exist and before the first frame.
+    Private Sub OnFormBuilt()
+        lblTitle.setText("Sign in")
+    End Sub
+
+    ' Written once, when btnLogin was wired up. The body is yours from then on.
+    Private Sub OnLoginClick(source As Button)
+        lblTitle.setText("Welcome, " + txtUser.getText())
+    End Sub
+
+
+
+'*******************************************************************************
+'
+'                                 DO NOT EDIT
+'                             TSB RAPIDFX MOBILE
+'
+'*******************************************************************************
+
+
+
+    ' @tsbmob form class=MobileLogin device=PHONE w=390 h=844
+    Private screen As Screen = New Screen()
+
+    ' @tsbmob Label lblTitle L=16 T=24 W=358 H=32
+    Private lblTitle As Label = New Label()
+
+    ' @tsbmob TextField txtUser L=16 T=16@lblTitle.BOTTOM W=358 H=44
+    Private txtUser As TextField = New TextField()
+
+    ' @tsbmob Button btnLogin L=16 T=16@txtUser.BOTTOM W=140 H=44
+    Private btnLogin As Button = New Button()
+
+    ' Builds this form's screen.
+    '
+    ' Called once, by the platform's entry point: the activity on Android, the
+    ' delegate on iOS, SwingApp on the desktop. It works only on instance fields,
+    ' so every instance of this form has widgets of its own.
+    Public Function build() As Screen
+        screen.setTitle("Sign in")
+
+        lblTitle.setName("lblTitle")
+        lblTitle.setSize(358, 32)
+        screen.add(lblTitle)
+
+        txtUser.setName("txtUser")
+        txtUser.setSize(358, 44)
+        screen.add(txtUser)
+
+        btnLogin.setName("btnLogin")
+        btnLogin.setText("Sign in")
+        btnLogin.onClick(AddressOf OnLoginClick)
+        btnLogin.setSize(140, 44)
+        screen.add(btnLogin)
+
+        screen.anchor(lblTitle, Edge.LEFT, 16)
+        screen.anchor(lblTitle, Edge.TOP, 24)
+        screen.anchor(txtUser, Edge.LEFT, 16)
+        screen.anchor(txtUser, Edge.TOP, 16, lblTitle, Edge.BOTTOM)
+        screen.anchor(btnLogin, Edge.LEFT, 16)
+        screen.anchor(btnLogin, Edge.TOP, 16, txtUser, Edge.BOTTOM)
+
+        OnFormBuilt()
+
+        Return screen
+    End Function
+End Class
+```
+
+(The rules are drawn seventy-eight characters wide; they are shortened here to fit the page.)
+
+**Above the banner is yours** — the class declaration, `OnFormBuilt`, event bodies, helper methods,
+fields of your own. The designer reads that half once and writes it back character for character.
+It only ever *adds*: a missing `Imports`, and an empty body for an event you have just wired.
+Nothing is removed, so a hand-written import is as safe as any other line.
+
+**Below the banner belongs to the designer** — the widget fields and the whole of `build()`. That
+half is replaced in full on every save.
+
+**There is no `Shared` anywhere.** Fields are instance fields, `build()` is an instance method, and
+a form is used as `New MobileLogin()`, so two instances of one form are independent. That is the
+same decision as on the desktop, and it is what lets the designer render a form on its own canvas
+while a simulator runs another instance of it.
+
+### Five shapes, and that is the whole generator
+
+The desktop generator runs to six hundred lines because Swing is six things: a different layout
+manager per container, a `GridBagConstraints` built inline for every child of a grid, a scroll pane
+that takes `setViewportView` where a tabbed pane takes `addTab`. None of that is here — and none of
+it was dropped. It moved into `tsb.mobile`, where it is ordinary Java that a test can call. What a
+generated mobile form contains is five kinds of line:
+
+| line | what it is |
+|---|---|
+| `btnLogin.setText("Sign in")` | a property that deviates from its default |
+| `btnLogin.onClick(AddressOf OnLoginClick)` | an event, wired with `AddressOf` |
+| `btnLogin.setSize(140, 44)` | the resolved design size |
+| `screen.add(btnLogin)` | on the screen |
+| `screen.anchor(btnLogin, Edge.LEFT, 16)` | one line per anchor |
+
+They are the same five lines whether the form is going to a phone, to a simulator or to the
+designer's own canvas. **Only deviations are written:** a property still at its declared default
+produces no statement at all, which is why the generated half says what you changed and nothing
+else.
+
+`AddressOf` on a private instance method carries `Me` with it, so a handler can touch every field
+of the form while its body stays entirely yours. That one language feature is why the designer can
+generate event wiring without owning the behaviour.
+
+### What the meta line carries, and why it is almost empty
+
+The `' @tsbmob` lines are RapidFX comments; the compiler ignores them. They exist so that the
+designer can reopen the file, and here they carry far less than their desktop counterparts, because
+the code below them says almost everything: `screen.anchor(btnLogin, Edge.LEFT, 16)` is unambiguous
+in a way that `putConstraint(WEST, btnLogin, 24, WEST, rootPane)` is not.
+
+What the code genuinely cannot state is on the **form** line:
+
+```
+' @tsbmob form class=MobileLogin device=PHONE w=390 h=844
+```
+
+The **device**. `screen.anchor(btn, Edge.RIGHT, 24)` is the same statement whether the form was
+drawn on a phone or on a tablet, so reopening the file at the wrong size would move every widget
+anchored right or bottom — and would then write those moved positions back. The widget lines repeat
+the geometry (`L=`, `T=`, `W=`, `H=`) and carry one other kind of thing: the sample rows of a list
+or a drop-down, written as `p.`-prefixed attributes, which the preview draws and the running
+program deliberately does not contain.
+
+> **The key used to be German.** Forms written before the rename say `geraet=PHONE`. Both are read;
+> only `device=` is written. A form from then opens, and the first save brings it up to date — the
+> same arrangement as the one-line marker that preceded the banner.
+
+**Delete a meta line and you lose the layout on the next open — not the program.** It still
+compiles and still runs, because every line the compiler needs is below it in real code.
+
+### Editing the generated half by hand
+
+It works, and sometimes it is the right thing to do: a form in a regression test grows a label
+faster by hand than by opening a designer for it. What it costs is that **you are the generator
+now**, and the file has three places that have to agree.
+
+1. The `' @tsbmob` line — what the designer reads back.
+2. The field declaration.
+3. The statements in `build()`: `setName`, `setSize`, `screen.add`, and one `screen.anchor` per
+   edge.
+
+Miss the `anchor` calls and the widget sits at the top left corner, on top of whatever is there.
+Miss the `' @tsbmob` line and it compiles, runs, and loses its place the first time the form is
+saved from the designer. The compiler checks the second and third of the three and cannot check the
+first, which is the part worth being careful about.
+
+The honest summary: editing above the banner is free; editing below it is a small mechanical job
+with no compiler watching the half that matters. The forms under `mobile/experiments/` are
+maintained exactly that way, and the order of the statements in the example above is the order to
+copy.
+
 ## 25 Writing a mobile program
 
 ### A form
@@ -4798,12 +5069,22 @@ marketing icon App Store Connect wants at upload.
 
 Said plainly, because finding out in the middle of a project is worse:
 
-* **Camera, barcode, sensors, Bluetooth.** Location is the only hardware with a facade so far. The
-  way in — the order channel between the two VMs on Android — is built, and the rest is repetition
-  of the same pattern.
-* **Some of `java.base`**: about 318 members of classes that do exist, mostly in corners a business
-  program does not reach — `Process`, `ClassLoader`, `JarFile`. `rfxc` tells you at *compile* time
-  rather than letting you find out on the device.
+* **Camera, barcode, sensors, Bluetooth.** Location is the only hardware with a facade so far, and
+  the camera has everything but the device half. The way in — the order channel between the two VMs
+  on Android — is built, and the rest is repetition of the same pattern.
+* **Some of `java.base`**: **236 members** of classes that do exist that a program might plausibly
+  reach, measured against the published runtime on 13.10.2026 rather than estimated. `rfxc` tells
+  you at *compile* time rather than letting you find out on the device.
+
+  Three classes are worth naming, because their absence is a fact about the platform and not a
+  gap waiting to be filled. **`ForkJoinPool`** is short eleven, of which seven are JDK 25 making it
+  a `ScheduledExecutorService`. **`Process`** is short seven, every one of them needing
+  `ProcessHandle` — and on iOS an application cannot spawn a child process at all, so there is
+  nothing for a `ProcessHandle` to describe. **`ClassLoader`** is short four, two of which need a
+  field added to a class the virtual machine reads by offset.
+
+  `java.time` is short exactly one: `appendDayPeriodText`, the formatter's "in the morning" rather
+  than "AM".
 * **`java.lang.classfile`, `java.lang.foreign`, the module system** — absent and staying absent.
 
 ---
@@ -4956,9 +5237,13 @@ profile regulated — enforced:
   warnings end the build, and nothing is written
   every emitted class is held against the class file format before writing
   a build record is written, with a fingerprint over sources, libraries and output
+  the language subset refuses On Error Resume Next (RFX0500)
+  the language subset refuses GoTo (RFX0501)
+  the language subset refuses background work without a failure handler (RFX0502)
 profile regulated — NOT yet enforced:
-  the documented language subset (constructs whose semantics are unmeasured, and
-  constructs that behave differently per target). Not built; do not rely on it.
+  the rest of the documented language subset (constructs whose semantics are
+  unmeasured, and constructs that behave differently per target). Being built one
+  rule at a time; what is listed above is all there is today.
 written: build/program.jar  (16 entries)
 start it with: java -jar build/program.jar
 record: /tmp/program/build/build-record.json  fingerprint a3b223ca4e3076e6a84f0e14ef2acbecc35879d81cb384464258c011bb22707b
@@ -5078,12 +5363,19 @@ explain it.
 
 ### What is deliberately not claimed
 
-**The language subset is not built.** Two of the five measures planned for this profile are a
-documented subset of the language: refusing constructs whose semantics are unmeasured, and
-constructs that behave differently from one target to the next. Which constructs belong in it is a
-product decision, not something derivable from the compiler. Until it exists, every regulated build
-prints that it is missing — a profile that quietly enforced three fifths of what its name suggests
-would be worse than no profile, because somebody would rely on the other two.
+**The language subset is being built one rule at a time.** Two of the five measures planned for this
+profile are a documented subset of the language: refusing constructs whose semantics are unmeasured,
+and constructs that behave differently from one target to the next. Which constructs belong in it is
+a product decision, not something derivable from the compiler.
+
+Since 06.10.2026 the profile lists the rules that exist and then says that the rest does not, so a
+reader watches the subset grow instead of reading a promise. The three rules today are `On Error Resume Next`, a `GoTo` somebody wrote, and background work
+without a failure handler — the last being the first rule about behaviour that differs per target,
+which is the second measure this profile owes. For the first: every statement after it runs inside its own guard, so a failure is recorded rather than
+raised and the error disappears unless somebody reads `Err` afterwards. A construct outside the
+subset is a **warning in every build** — `RFX0500`, you are told and not stopped — and a **refusal
+under this profile**, because warnings are fatal here. Under the profile it cannot be suppressed
+either: a promise a flag can take away is not one.
 
 **Coverage is a recipe, not a switch.** Which statements of a program were never executed can be
 measured today — an ordinary Java coverage tool reports on `.rfx` lines directly, because the emitter
