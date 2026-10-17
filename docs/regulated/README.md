@@ -9,8 +9,8 @@ would invalidate all of that.
 
 | | |
 |---|---|
-| **Applies to** | `rapidfx-idea-2026.1.95` and `rfxc 0.1.0` as shipped inside it |
-| **Written** | 06.10.2026 · revised 13.10.2026 for `2026.1.95` |
+| **Applies to** | `rapidfx-idea-2026.1.96` and `rfxc 0.1.0` as shipped inside it |
+| **Written** | 06.10.2026 · revised 17.10.2026 for `2026.1.96` |
 | **Status of the feature** | implemented and in use; the language subset is six rules and grows (§3) |
 | **Scope** | desktop and web programs. A mobile project is refused by name — see §3 |
 
@@ -35,8 +35,8 @@ because of a day that was lost to it.
 **1. The artefact is the one that was published.**
 
 ```bash
-shasum -a 256 rapidfx-idea-2026.1.95.zip
-ad325f98fdf8db278036aee51182ccf1832897548fac78eb11a50b46e7b63f48
+shasum -a 256 rapidfx-idea-2026.1.96.zip
+204b40ead527639158590bed81962aae9645eb5a5edf82c0e28309eae055a254
 ```
 
 That value is in the release notes of the version it belongs to. A plugin zip is an ordinary file
@@ -115,7 +115,8 @@ product decision and not derivable from the compiler.
 
 Since 06.10.2026 it is built **one rule at a time**, and the profile prints the rules that exist
 followed by the statement that the rest does not — so what you qualify against is a list and not a
-promise. **In `2026.1.95` that list is six rules**, where `2026.1.94` had three:
+promise. **In `2026.1.96` that list is six rules**, unchanged since `2026.1.95`, where
+`2026.1.94` had three:
 
 | | | |
 |---|---|---|
@@ -197,10 +198,16 @@ compiler:
 | Linux | `~/.local/share/JetBrains/<IDE>/plugins/rapidfx-idea/lib/rfxmobile/rfxc-0.1.0.jar` |
 | Windows | `%APPDATA%\JetBrains\<IDE>\plugins\rapidfx-idea\lib\rfxmobile\rfxc-0.1.0.jar` |
 
-In `2026.1.95` that jar is
+In `2026.1.96` that jar is
 `ad35e38542af4da6e784e6dcbb0c8dae94e5c286e945db6545dd0bd9d573b6d0`, byte for byte the one in the
 published zip — checked by hashing both, on the zip downloaded back from the release rather than on
 the one this machine built.
+
+**That is the same number `2026.1.95` carried,** and it is worth a sentence rather than looking like
+a mistake: `2026.1.96` changed the tsbWEB libraries and nothing in the compiler, so the compiler jar
+is byte for byte the one of the release before it. A qualification of the compiler against
+`2026.1.95` therefore still describes the compiler in `2026.1.96` — and the zip's own digest above
+differs, which is what identifies the release.
 
 Both numbers move with every release. The one that belongs to the version you are holding is in that
 version's release notes, and §1 is how you establish it before anything else.

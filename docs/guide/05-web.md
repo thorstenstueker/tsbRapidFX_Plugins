@@ -200,6 +200,19 @@ program with a port.
 For a real deployment put it behind a reverse proxy that terminates TLS — nginx, Caddy, Apache — and
 let that forward to the port. Nothing in the program changes.
 
+**One thing to know about what sits in between.** The page holds an event stream open for its whole
+life, and on a page nobody is touching the only traffic on it is a heartbeat — clicks do not help,
+because an event is a POST on a different connection. Anything in the path that cuts an idle
+connection will therefore cut that one: a mobile network commonly at thirty seconds, a proxy
+sometimes at fifteen. The heartbeat is every ten seconds since **2026.1.96**, which fits three times
+into thirty; where something in front is less patient, `heartbeat.seconds` in `tsbweb.properties`
+lowers it. The symptom, if it is ever wrong, is the page saying **"Connection lost"** while nothing
+is wrong with the program.
+
+**And a session that may sit untouched for hours** is `idle.minutes`: `600` keeps it for ten. A tab
+that is genuinely *closed* still ends after `grace.seconds` — three minutes — because the server
+knows that one rather than guessing it.
+
 ---
 
 [← Desktop](04-desktop.md) · [Contents](README.md) · [Mobile →](06-mobile.md)
